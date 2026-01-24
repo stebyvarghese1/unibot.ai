@@ -47,13 +47,33 @@ class AIService:
                 llm_model = current_app.config.get("HF_LLM_MODEL") if current_app else None
             except Exception:
                 llm_model = None
-            response = client.chat_completion(
-                messages, 
-                model=llm_model or Config.HF_LLM_MODEL, 
-                max_tokens=512, 
-                temperature=0.1
-            )
-            return response.choices[0].message.content
+            model = llm_model or Config.HF_LLM_MODEL
+            # First try chat_completion (OpenAI-style). Not all providers support it.
+            try:
+                response = client.chat_completion(
+                    messages,
+                    model=model,
+                    max_tokens=512,
+                    temperature=0.1
+                )
+                return response.choices[0].message.content
+            except Exception:
+                # Fallback to text_generation for models that do not support chat_completion
+                prompt = (
+                    "You are a helpful assistant for university students. Answer strictly from the provided context. "
+                    "Reply in a natural mixed style: a brief 1–2 sentence summary, followed by 3–5 short bullet points, "
+                    "and an optional one‑line note if helpful. Keep it concise. When including links, output raw URLs "
+                    "without enclosing symbols or markdown wrappers. If the answer is not in the context, reply exactly: "
+                    "Not available in uploaded documents.\n\n"
+                    f"Context:\n{context}\n\nQuestion: {question}\n\nAnswer:"
+                )
+                out = client.text_generation(
+                    prompt,
+                    model=model,
+                    max_new_tokens=512,
+                    temperature=0.1,
+                )
+                return out.strip()
         except Exception as e:
             return f"Error generating answer: {e}"
 
