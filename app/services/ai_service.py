@@ -67,13 +67,25 @@ class AIService:
                     "Not available in uploaded documents.\n\n"
                     f"Context:\n{context}\n\nQuestion: {question}\n\nAnswer:"
                 )
-                out = client.text_generation(
-                    prompt,
-                    model=model,
-                    max_new_tokens=512,
-                    temperature=0.1,
-                )
-                return out.strip()
+                try:
+                    out = client.text_generation(
+                        prompt,
+                        model=model,
+                        max_new_tokens=512,
+                        temperature=0.1,
+                    )
+                    return out.strip()
+                except Exception:
+                    conv_prompt = (
+                        "You are a helpful assistant for university students. Answer strictly from the provided context. "
+                        "Reply in a natural mixed style: a brief 1–2 sentence summary, followed by 3–5 short bullet points, "
+                        "and an optional one‑line note if helpful. Keep it concise. When including links, output raw URLs "
+                        "without enclosing symbols or markdown wrappers. If the answer is not in the context, reply exactly: "
+                        "Not available in uploaded documents.\n\n"
+                        f"Context:\n{context}\n\nQuestion: {question}\n\nAnswer:"
+                    )
+                    out2 = client.conversational(conv_prompt, model=model)
+                    return (out2.get('generated_text') or 'Not available in uploaded documents.').strip()
         except Exception as e:
             return f"Error generating answer: {e}"
 
