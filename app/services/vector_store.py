@@ -16,7 +16,9 @@ class VectorStore:
 
     def initialize_index(self, dimension=384):
         self.dimension = dimension
-        self.index = faiss.IndexFlatIP(dimension)
+        # IndexFlatIP is good for cosine similarity if vectors are normalized
+        # IndexFlatL2 is standard Euclidean
+        self.index = faiss.IndexFlatL2(dimension)
         self.chunks = []
 
     def add_documents(self, embeddings, chunks_metadata):
@@ -28,9 +30,6 @@ class VectorStore:
             self.initialize_index(len(embeddings[0]))
             
         vectors = np.array(embeddings).astype('float32')
-        norms = np.linalg.norm(vectors, axis=1, keepdims=True)
-        norms[norms == 0] = 1.0
-        vectors = vectors / norms
         self.index.add(vectors)
         self.chunks.extend(chunks_metadata)
 
@@ -55,7 +54,7 @@ class VectorStore:
             return
 
         # Create new index
-        new_index = faiss.IndexFlatIP(self.dimension)
+        new_index = faiss.IndexFlatL2(self.dimension)
         
         # Transfer vectors for kept chunks
         # We can't batch add easily without collecting all vectors first
@@ -82,9 +81,6 @@ class VectorStore:
             return []
             
         vector = np.array([query_vector]).astype('float32')
-        norm = np.linalg.norm(vector, axis=1, keepdims=True)
-        norm[norm == 0] = 1.0
-        vector = vector / norm
         distances, indices = self.index.search(vector, k)
         
         results = []
