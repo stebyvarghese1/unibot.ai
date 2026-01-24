@@ -1,0 +1,9 @@
+Columns in documents table:
+- id (integer)
+- filename (character varying)
+- file_path (character varying)
+- upload_date (timestamp without time zone)
+- uploaded_by (integer)
+- status (character varying)
+- course (character varying)
+- sem (character varying)

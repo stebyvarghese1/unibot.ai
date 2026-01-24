@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Profile</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+<header class="bg-blue-800 text-white p-4 shadow-md">
+<div class="container mx-auto flex justify-between items-center"><h1 class="text-xl font-bold">My Profile</h1><a href="/chat" class="text-sm underline">Back to Chat</a></div>
+</header>
+<main class="container mx-auto p-6">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-white rounded-lg shadow p-6">
+<h2 class="text-lg font-semibold mb-4">Account</h2>
+<div class="space-y-2"><div class="text-sm"><span class="text-gray-500">Email:</span> <span id="p-email"></span></div><div class="text-sm"><span class="text-gray-500">Role:</span> <span id="p-role"></span></div><div class="text-sm"><span class="text-gray-500">Created:</span> <span id="p-created"></span></div></div>
+<button id="logout-btn" class="mt-4 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Logout</button>
+</div>
+<div class="bg-white rounded-lg shadow p-6">
+<h2 class="text-lg font-semibold mb-4">Change Password</h2>
+<form id="pwd-form" class="space-y-3"><input type="password" id="current" placeholder="Current password" class="w-full border border-gray-300 rounded p-2" required><input type="password" id="newpwd" placeholder="New password" class="w-full border border-gray-300 rounded p-2" required><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Update Password</button></form>
+<div id="pwd-status" class="mt-2 text-sm h-5"></div>
+</div>
+<div class="bg-white rounded-lg shadow p-6">
+<h2 class="text-lg font-semibold mb-4">Chat Filters</h2>
+<p class="text-xs text-gray-500 mb-3">Select default Course, Semester, and Subject for chat context.</p>
+<div class="space-y-3">
+<div>
+<label class="block text-xs font-medium text-gray-600 mb-1">Course</label>
+<select id="pref-course" class="w-full border border-gray-300 rounded p-2 text-sm"></select>
+</div>
+<div>
+<label class="block text-xs font-medium text-gray-600 mb-1">Semester</label>
+<select id="pref-sem" class="w-full border border-gray-300 rounded p-2 text-sm"></select>
+</div>
+<div>
+<label class="block text-xs font-medium text-gray-600 mb-1">Subject</label>
+<select id="pref-subj" class="w-full border border-gray-300 rounded p-2 text-sm"></select>
+</div>
+<button id="save-prefs" class="mt-2 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save Preferences</button>
+<div id="prefs-status" class="mt-2 text-sm h-5"></div>
+</div>
+</div>
+</div>
+</main>
+<script>
+async function init(){const r=await fetch('/api/check-auth');const auth=await r.json();if(!auth.authenticated){window.location.href='/login';return;}const profRes=await fetch('/api/profile');const prof=await profRes.json();document.getElementById('p-email').innerText=prof.email||'';document.getElementById('p-role').innerText=prof.role||'';document.getElementById('p-created').innerText=prof.created_at?new Date(prof.created_at).toLocaleDateString():'';try{const fRes=await fetch('/api/filters');const filters=await fRes.json();const cSel=document.getElementById('pref-course');const sSel=document.getElementById('pref-sem');const jSel=document.getElementById('pref-subj');const courses=(filters.courses||[]).filter(Boolean).sort();const semesters=(filters.semesters||[]).filter(Boolean).sort();const subjects=(filters.subjects||[]).filter(Boolean).sort();cSel.innerHTML='<option value=\"\">All Courses</option>'+(courses.map(c=>`<option value=\"${c}\">${c}</option>`).join(''));sSel.innerHTML='<option value=\"\">All Semesters</option>'+(semesters.map(s=>`<option value=\"${s}\">${s}</option>`).join(''));jSel.innerHTML='<option value=\"\">All Subjects</option>'+(subjects.map(s=>`<option value=\"${s}\">${s}</option>`).join(''));const pRes=await fetch('/api/prefs');const prefs=await pRes.json();if(prefs.course){cSel.value=prefs.course;}if(prefs.semester){sSel.value=prefs.semester;}if(prefs.subject){jSel.value=prefs.subject;}}catch(e){}}
+init();
+document.getElementById('logout-btn').addEventListener('click',async()=>{await fetch('/api/logout',{method:'POST'});window.location.href='/login';});
+document.getElementById('pwd-form').addEventListener('submit',async(e)=>{e.preventDefault();const status=document.getElementById('pwd-status');status.innerText='Updating...';status.className='mt-2 text-sm text-blue-600';const current=document.getElementById('current').value;const newpwd=document.getElementById('newpwd').value;try{const res=await fetch('/api/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:current,new_password:newpwd})});const data=await res.json();if(res.ok){status.innerText='Password updated';status.className='mt-2 text-sm text-green-600';document.getElementById('current').value='';document.getElementById('newpwd').value='';}else{status.innerText=data.error||'Failed';status.className='mt-2 text-sm text-red-600';}}catch(e){status.innerText='Network error';status.className='mt-2 text-sm text-red-600';}});
+document.getElementById('save-prefs').addEventListener('click',async()=>{const status=document.getElementById('prefs-status');status.innerText='Saving...';status.className='mt-2 text-sm text-blue-600';const course=document.getElementById('pref-course').value;const semester=document.getElementById('pref-sem').value;const subject=document.getElementById('pref-subj').value;try{const res=await fetch('/api/prefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({course,semester,subject})});const data=await res.json();if(res.ok){status.innerText='Preferences saved';status.className='mt-2 text-sm text-green-600';}else{status.innerText=data.error||'Failed';status.className='mt-2 text-sm text-red-600';}}catch(e){status.innerText='Network error';status.className='mt-2 text-sm text-red-600';}});
+</script>
+</body>
+</html>
