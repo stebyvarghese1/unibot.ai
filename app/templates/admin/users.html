@@ -1,0 +1,20 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Users - Admin Dashboard{% endblock %}
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+<div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center"><h2 class="text-lg font-semibold text-gray-800">System Users</h2><button onclick="loadUsers()" class="p-2 text-gray-500 hover:text-blue-600 transition rounded-full hover:bg-blue-50"><i class="fas fa-sync-alt"></i></button></div>
+<div class="overflow-x-auto">
+<table class="min-w-full divide-y divide-gray-200">
+<thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">ID</th><th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th><th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Role</th><th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Created At</th></tr></thead>
+<tbody id="user-list" class="bg-white divide-y divide-gray-200"></tbody>
+</table>
+<div id="empty-state" class="hidden py-12 text-center"><i class="fas fa-users text-4xl text-gray-300 mb-3"></i><p class="text-gray-500">No users found.</p></div>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function loadUsers(){const tbody=document.getElementById('user-list');const emptyState=document.getElementById('empty-state');tbody.innerHTML='<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Loading...</td></tr>';try{const res=await fetch('/api/admin/users');let data=await res.json();data=data.sort((a,b)=>{if(a.role==='admin'&&b.role!=='admin')return-1;if(a.role!=='admin'&&b.role==='admin')return 1;return new Date(b.created_at)-new Date(a.created_at);});tbody.innerHTML='';if(data.length===0){emptyState.classList.remove('hidden');}else{emptyState.classList.add('hidden');data.forEach(user=>{const tr=document.createElement('tr');let roleClass='bg-gray-100 text-gray-800';if(user.role==='admin'){roleClass='bg-purple-100 text-purple-700';}tr.innerHTML=`<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#${user.id}</td><td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><div class="flex items-center"><div class="h-8 w-8 rounded-full ${user.role==='admin'?'bg-purple-100 text-purple-700':'bg-blue-100 text-blue-600'} flex items-center justify-center font-bold mr-3 text-xs">${user.email.substring(0,2).toUpperCase()}</div>${user.email}${user.role==='admin'?'<span class="ml-2 px-2 py-0.5 text-xs rounded-full bg-purple-50 text-purple-700 border border-purple-200 inline-flex items-center"><i class="fas fa-crown mr-1"></i> Admin</span>':''}</div></td><td class="px-6 py-4 whitespace-nowrap"><span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${roleClass}">${user.role}</span></td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(user.created_at).toLocaleDateString()}</td>`;if(user.role==='admin'){tr.className='bg-purple-50';}tbody.appendChild(tr);});}}catch(e){tbody.innerHTML='<tr><td colspan="4" class="px-6 py-4 text-center text-red-500">Error loading users</td></tr>';}}
+loadUsers();
+</script>
+{% endblock %}

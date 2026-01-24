@@ -1,0 +1,94 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Documents - Admin Dashboard{% endblock %}
+{% block content %}
+<div class="space-y-6">
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+<div class="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
+<div class="flex-1">
+<label class="block text-xs font-medium text-gray-500 uppercase mb-1">Search</label>
+<div class="relative"><span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><i class="fas fa-search text-gray-400"></i></span><input type="text" id="search-filter" placeholder="Search filenames..." class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
+</div>
+<div class="w-full md:w-48">
+<label class="block text-xs font-medium text-gray-500 uppercase mb-1">Course</label>
+<select id="course-filter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">All Courses</option></select>
+</div>
+<div class="w-full md:w-48">
+<label class="block text-xs font-medium text-gray-500 uppercase mb-1">Semester</label>
+<select id="sem-filter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">All Semesters</option></select>
+</div>
+<div class="w-full md:w-48">
+<label class="block text-xs font-medium text-gray-500 uppercase mb-1">Subject</label>
+<select id="subj-filter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"><option value="">All Subjects</option></select>
+</div>
+</div>
+</div>
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+<div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center"><h2 class="text-lg font-semibold text-gray-800">Uploaded Documents</h2><button onclick="loadDocs()" class="p-2 text-gray-500 hover:text-blue-600 transition rounded-full hover:bg-blue-50"><i class="fas fa-sync-alt"></i></button></div>
+<div class="overflow-x-auto">
+<table class="min-w-full divide-y divide-gray-200">
+<thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Filename</th><th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Course</th><th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Semester</th><th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Subject</th><th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Status</th><th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Upload Date</th><th class="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Actions</th></tr></thead>
+<tbody id="doc-list" class="bg-white divide-y divide-gray-200"></tbody>
+</table>
+<div id="empty-state" class="hidden py-12 text-center"><i class="fas fa-file-invoice text-4xl text-gray-300 mb-3"></i><p class="text-gray-500">No documents found matching filters.</p></div>
+</div>
+</div>
+</div>
+<div id="chunks-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true"><div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0"><div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeModal()"></div><span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span><div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full"><div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4"><div class="sm:flex sm:items-start"><div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full"><h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">Document Chunks</h3><div class="mt-4 max-h-[60vh] overflow-y-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50 sticky top-0"><tr><th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Idx</th><th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Content</th></tr></thead><tbody id="chunks-list" class="bg-white divide-y divide-gray-200"></tbody></table><p id="chunks-loading" class="text-center py-4 text-gray-500 hidden">Loading chunks...</p></div></div></div></div><div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse"><button type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" onclick="closeModal()">Close</button></div></div></div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+let allDocs=[];
+async function loadDocs(){const tbody=document.getElementById('doc-list');const emptyState=document.getElementById('empty-state');tbody.innerHTML='<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">Loading...</td></tr>';try{const res=await fetch('/api/admin/documents');allDocs=await res.json();const courses=[...new Set(allDocs.map(d=>d.course).filter(Boolean))].sort();const courseSelect=document.getElementById('course-filter');courseSelect.innerHTML='<option value=\"\">All Courses</option>';courses.forEach(c=>{const opt=document.createElement('option');opt.value=c;opt.textContent=c;courseSelect.appendChild(opt);});const semesters=[...new Set(allDocs.map(d=>d.semester).filter(Boolean))].sort();const semSelect=document.getElementById('sem-filter');semSelect.innerHTML='<option value=\"\">All Semesters</option>';semesters.forEach(s=>{const opt=document.createElement('option');opt.value=s;opt.textContent=s;semSelect.appendChild(opt);});const subjects=[...new Set(allDocs.map(d=>d.subject).filter(Boolean))].sort();const subjSelect=document.getElementById('subj-filter');if(subjSelect){subjSelect.innerHTML='<option value=\"\">All Subjects</option>';subjects.forEach(s=>{const opt=document.createElement('option');opt.value=s;opt.textContent=s;subjSelect.appendChild(opt);});}renderDocs();applySubjectFilter();}catch(e){tbody.innerHTML='<tr><td colspan=\"6\" class=\"px-6 py-4 text-center text-red-500\">Error loading documents</td></tr>';}}
+function renderDocs(){const tbody=document.getElementById('doc-list');const emptyState=document.getElementById('empty-state');const search=document.getElementById('search-filter').value.toLowerCase();const course=document.getElementById('course-filter').value;const sem=document.getElementById('sem-filter').value;const filtered=allDocs.filter(doc=>{const matchesSearch=doc.filename.toLowerCase().includes(search);const matchesCourse=!course||doc.course===course;const matchesSem=!sem||doc.semester===sem;return matchesSearch&&matchesCourse&&matchesSem;});tbody.innerHTML='';if(filtered.length===0){emptyState.classList.remove('hidden');}else{emptyState.classList.add('hidden');filtered.forEach(doc=>{const tr=document.createElement('tr');let statusClass='bg-gray-100 text-gray-800';let statusIcon='fa-circle';if(doc.status==='processed'){statusClass='bg-green-100 text-green-700';statusIcon='fa-check-circle';}else if(doc.status==='error'){statusClass='bg-red-100 text-red-700';statusIcon='fa-exclamation-circle';}else if(doc.status==='pending'){statusClass='bg-yellow-100 text-yellow-700';statusIcon='fa-clock';}tr.innerHTML=`<td class="px-6 py-4 whitespace-nowrap"><div class="flex items-center"><div class="flex-shrink-0 h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-500"><i class="fas fa-file-pdf"></i></div><div class="ml-4"><div class="text-sm font-medium text-gray-900">${doc.filename}</div></div></div></td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${doc.course||'-'}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${doc.semester||'-'}</td><td class="px-6 py-4 whitespace-nowrap"><span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full items-center ${statusClass}"><i class="fas ${statusIcon} mr-1"></i> ${doc.status}</span></td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(doc.upload_date).toLocaleDateString()}</td><td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2"><button onclick="viewChunks(${doc.id}, '${doc.filename}')" class="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded hover:bg-blue-100 transition">Chunks</button><button onclick="deleteDoc(${doc.id})" class="text-red-600 hover:text-red-900 bg-red-50 px-3 py-1 rounded hover:bg-red-100 transition"><i class="fas fa-trash"></i></button></td>`;tbody.appendChild(tr);});}}
+async function deleteDoc(id){if(!confirm('Are you sure you want to delete this document and all its chunks? This cannot be undone.'))return;try{const res=await fetch(`/api/admin/documents/${id}`,{method:'DELETE'});if(res.ok){allDocs=allDocs.filter(d=>d.id!==id);renderDocs();}else{alert('Failed to delete document');}}catch(e){alert('Error deleting document');}}
+function closeModal(){document.getElementById('chunks-modal').classList.add('hidden');}
+async function viewChunks(id,filename){document.getElementById('modal-title').innerText=`Chunks: ${filename}`;const chunksList=document.getElementById('chunks-list');const chunksLoading=document.getElementById('chunks-loading');const modal=document.getElementById('chunks-modal');chunksList.innerHTML='';chunksLoading.classList.remove('hidden');modal.classList.remove('hidden');try{const res=await fetch(`/api/admin/documents/${id}/chunks`);const chunks=await res.json();chunksLoading.classList.add('hidden');if(chunks.length===0){chunksList.innerHTML='<tr><td colspan="2" class="px-6 py-4 text-center text-gray-500">No chunks found.</td></tr>';}else{chunks.forEach(c=>{const tr=document.createElement('tr');tr.innerHTML=`<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${c.chunk_index}</td><td class="px-6 py-4 text-sm text-gray-800"><div class="max-w-3xl whitespace-pre-wrap">${c.chunk_text}</div></td>`;chunksList.appendChild(tr);});}}catch(e){chunksLoading.classList.add('hidden');chunksList.innerHTML='<tr><td colspan="2" class="px-6 py-4 text-center text-red-500">Error loading chunks</td></tr>';}}
+loadDocs();
+// Enhance course and semester cells with clear badges
+function styleCourseSem(){const rows=document.querySelectorAll('#doc-list tr');rows.forEach(r=>{const courseCell=r.children&&r.children[1];const semCell=r.children&&r.children[2];if(courseCell){const val=(courseCell.textContent||'').trim();const known=val&&val!=='-';courseCell.innerHTML=`<span class="px-2 py-1 inline-flex text-xs font-semibold rounded-full ${known?'bg-blue-50 text-blue-700 border border-blue-200':'bg-gray-100 text-gray-500 border border-gray-200'}">${known?val:'Unknown'}</span>`;}if(semCell){const val=(semCell.textContent||'').trim();const known=val&&val!=='-';semCell.innerHTML=`<span class="px-2 py-1 inline-flex text-xs font-semibold rounded-full ${known?'bg-indigo-50 text-indigo-700 border border-indigo-200':'bg-gray-100 text-gray-500 border border-gray-200'}">${known?val:'Unknown'}</span>`;}});}
+// Observe changes to apply styling after renderDocs updates the table
+const tbody=document.getElementById('doc-list');
+if(tbody){const obs=new MutationObserver(()=>{styleCourseSem();insertSubjectColumn();applySubjectFilter();});obs.observe(tbody,{childList:true,subtree:false});}
+
+function insertSubjectColumn(){
+  const rows=document.querySelectorAll('#doc-list tr');
+  rows.forEach(r=>{
+    const filenameCell=r.children&&r.children[0];
+    const semCell=r.children&&r.children[2];
+    if(!filenameCell||!semCell)return;
+    const existingSubjectCell=r.children[3];
+    if(existingSubjectCell && existingSubjectCell.getAttribute('data-injected')==='subject') return;
+    const fname=(filenameCell.textContent||'').trim();
+    const doc=Array.isArray(allDocs)?allDocs.find(d=>d.filename===fname):null;
+    const subj=(doc&&doc.subject)||'-';
+    const td=document.createElement('td');
+    td.setAttribute('data-injected','subject');
+    td.className='px-6 py-4 whitespace-nowrap text-sm text-gray-500';
+    const known=subj&&subj!=='-';
+    td.innerHTML=`<span class="px-2 py-1 inline-flex text-xs font-semibold rounded-full ${known?'bg-purple-50 text-purple-700 border border-purple-200':'bg-gray-100 text-gray-500 border border-gray-200'}">${known?subj:'Unknown'}</span>`;
+    // Insert after semester cell (index 2)
+    semCell.after(td);
+  });
+}
+function applySubjectFilter(){
+  const subjSelect=document.getElementById('subj-filter');
+  if(!subjSelect) return;
+  const subj=subjSelect.value;
+  const rows=document.querySelectorAll('#doc-list tr');
+  rows.forEach(r=>{
+    const filenameCell=r.children&&r.children[0];
+    if(!filenameCell) return;
+    const fname=(filenameCell.textContent||'').trim();
+    const doc=Array.isArray(allDocs)?allDocs.find(d=>d.filename===fname):null;
+    const docSubj=(doc&&doc.subject)||'';
+    const match=!subj||docSubj===subj;
+    r.style.display=match?'':'none';
+  });
+}
+const subjSelectEl=document.getElementById('subj-filter');
+if(subjSelectEl){subjSelectEl.addEventListener('change',()=>applySubjectFilter());}
+document.getElementById('course-filter').addEventListener('change',()=>renderDocs());
+document.getElementById('sem-filter').addEventListener('change',()=>renderDocs());
+document.getElementById('search-filter').addEventListener('input',()=>renderDocs());
+</script>
+{% endblock %}

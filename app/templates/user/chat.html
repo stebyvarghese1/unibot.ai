@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+<header class="bg-blue-800 text-white p-4 shadow-md fixed top-0 left-0 right-0 z-10">
+<div class="container mx-auto flex justify-between items-center">
+<h1 class="text-xl font-bold">University AI Chatbot</h1>
+<div id="user-menu" class="text-sm"></div>
+</div>
+</header>
+<main class="flex-grow container mx-auto p-4 pt-20 pb-28 flex flex-col">
+<div id="chat-history" class="bg-white rounded-lg shadow-md p-4 flex-grow overflow-y-auto chat-container mb-4">
+<div class="text-center text-gray-500 mt-10"><p>Welcome! Ask me anything about university documents.</p></div>
+</div>
+<div class="fixed bottom-0 left-0 right-0 bg-white shadow-md z-10">
+<div class="container mx-auto p-4">
+<form id="chat-form" class="flex gap-2">
+<input type="text" id="question-input" class="flex-grow border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Type your question here..." required>
+<select id="subject-select" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+<option value="">All Subjects</option>
+</select>
+<button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">Send</button>
+</form>
+</div>
+</div>
+</main>
+<script>
+async function authGate(){const r=await fetch('/api/check-auth');const auth=await r.json();if(!auth.authenticated){window.location.href='/login';return;}const el=document.getElementById('user-menu');el.innerHTML='<a href="/profile" class="hover:underline mr-4">My Profile</a><button id="logout" class="hover:underline">Logout</button>';document.getElementById('logout').addEventListener('click',async()=>{await fetch('/api/logout',{method:'POST'});window.location.href='/login';});}
+authGate();
+const chatForm=document.getElementById('chat-form');
+const chatHistory=document.getElementById('chat-history');
+const questionInput=document.getElementById('question-input');
+const subjectSelect=document.getElementById('subject-select');
+async function loadSubjects(){try{const fRes=await fetch('/api/filters');const filters=await fRes.json();const subjects=(filters.subjects||[]).filter(Boolean).sort();subjectSelect.innerHTML='<option value=\"\">All Subjects</option>'+(subjects.map(s=>`<option value=\"${s}\">${s}</option>`).join(''));const pRes=await fetch('/api/prefs');const prefs=await pRes.json();if(prefs.subject){subjectSelect.value=prefs.subject;}}catch(e){}}
+loadSubjects();
+function clearThinking(){const thinkEls=chatHistory.querySelectorAll('.thinking');thinkEls.forEach(el=>el.remove());}
+function typeMessage(targetEl,fullText,onDone){let i=0;const speed=15;const interval=setInterval(()=>{targetEl.innerText=fullText.slice(0,i++);chatHistory.scrollTop=chatHistory.scrollHeight;if(i>fullText.length){clearInterval(interval);if(onDone)onDone();}},speed);}
+chatForm.addEventListener('submit',async(e)=>{e.preventDefault();const question=questionInput.value.trim();if(!question)return;appendMessage('user',question);questionInput.value='';const loadingId=appendMessage('bot','Thinking...',true);try{const response=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question,subject:subjectSelect.value})});const data=await response.json();clearThinking();if(response.ok){appendMessage('bot',data.answer,false,data.sources||[]);}else{appendMessage('bot','Error: '+(data.error||'Something went wrong.'));}}catch(error){clearThinking();appendMessage('bot','Network error. Please try again.');}});
+function linkify(text){const urlRegex=/(https?:\/\/[^\s<>\)\]\}]+)/g;function clean(url){return url.replace(/^[<\(\[\{]+/,'').replace(/[>\)\]\}\.,;:]+$/,'');}return text.replace(urlRegex,(raw)=>{const url=clean(raw);return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="underline text-blue-600">${url}</a>`;});}
+function renderRich(text){const lines=text.split(/\r?\n/);let html='';let ulOpen=false;for(const line of lines){const trimmed=line.trim();if(!trimmed)continue;const bullet=/^\s*[-*]\s+/.test(trimmed);if(bullet){const content=linkify(trimmed.replace(/^\s*[-*]\s+/,''));if(!ulOpen){html+='<ul class="list-disc ml-5">';ulOpen=true;}html+=`<li class="mb-1">${content}</li>`;}else{if(ulOpen){html+='</ul>';ulOpen=false;}html+=`<p class="mb-2">${linkify(trimmed)}</p>`;}}if(ulOpen)html+='</ul>';return html||`<p class="mb-2">${linkify(text)}</p>`;}
+function appendMessage(sender,text,isLoading=false,sources=[]){const div=document.createElement('div');div.className=`mb-4 flex ${sender==='user'?'justify-end':'justify-start'}`;const id='msg-'+Date.now();div.id=id;const bubble=document.createElement('div');bubble.className=`max-w-3/4 rounded-lg px-4 py-2 ${sender==='user'?'bg-blue-600 text-white rounded-br-none':'bg-gray-200 text-gray-800 rounded-bl-none'}`;const textEl=document.createElement('span');bubble.appendChild(textEl);if(isLoading){bubble.classList.add('animate-pulse');div.classList.add('thinking');}div.appendChild(bubble);if(!isLoading&&sender==='bot'){typeMessage(textEl,text,()=>{bubble.innerHTML=renderRich(text);if(Array.isArray(sources)&&sources.length>0){const srcList=document.createElement('div');srcList.className='mt-2 text-sm text-gray-600';const seen=new Set();const deduped=sources.filter(s=>{const key=s.doc_id||s.url||s.filename;if(seen.has(key))return false;seen.add(key);return true;});const items=deduped.map(s=>{const label=s.filename?s.filename:(s.url?s.url:(s.doc_id?`Document ${s.doc_id}`:'Source'));if(s.url){return `<div><a href="${s.url}" target="_blank" rel="noopener noreferrer" class="underline text-blue-600">${label}</a></div>`;}return `<div>${label}</div>`;}).join('');srcList.innerHTML=items;bubble.appendChild(srcList);}});}else if(sender==='user'){textEl.innerText=text;}chatHistory.appendChild(div);chatHistory.scrollTop=chatHistory.scrollHeight;return id;}
+</script>
+</body>
+</html>
