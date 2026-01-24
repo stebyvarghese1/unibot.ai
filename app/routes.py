@@ -474,8 +474,11 @@ def query():
 
         # 2. Search
         vector_store = VectorStore()
-        results = vector_store.search(q_vec, k=12)
-        filtered = results
+        results = vector_store.search(q_vec, k=8)
+        # Filter low-confidence matches by distance threshold; if empty, fallback to top results
+        filtered = [r for r in results if r.get('distance') is not None and r['distance'] <= Config.VECTOR_MAX_DISTANCE]
+        if not filtered and results:
+            filtered = results
         # Apply course/semester/subject filters if provided
         doc_map = {d.id: d for d in Document.query.all()}
         if course or semester or subject:
