@@ -2,7 +2,6 @@ from huggingface_hub import InferenceClient
 from config import Config
 from flask import current_app
 import time
-import requests
 
 class AIService:
     @staticmethod
@@ -68,50 +67,13 @@ class AIService:
                     "Not available in uploaded documents.\n\n"
                     f"Context:\n{context}\n\nQuestion: {question}\n\nAnswer:"
                 )
-                try:
-                    out = client.text_generation(
-                        prompt,
-                        model=model,
-                        max_new_tokens=512,
-                        temperature=0.1,
-                    )
-                    return out.strip()
-                except Exception:
-                    conv_prompt = (
-                        "You are a helpful assistant for university students. Answer strictly from the provided context. "
-                        "Reply in a natural mixed style: a brief 1–2 sentence summary, followed by 3–5 short bullet points, "
-                        "and an optional one‑line note if helpful. Keep it concise. When including links, output raw URLs "
-                        "without enclosing symbols or markdown wrappers. If the answer is not in the context, reply exactly: "
-                        "Not available in uploaded documents.\n\n"
-                        f"Context:\n{context}\n\nQuestion: {question}\n\nAnswer:"
-                    )
-                    try:
-                        auth_token = token or Config.HUGGINGFACE_API_TOKEN
-                        headers = {"Authorization": f"Bearer {auth_token}", "Content-Type": "application/json"}
-                        url = f"https://api-inference.huggingface.co/models/{model}"
-                        payload = {
-                            "inputs": {
-                                "past_user_inputs": [],
-                                "generated_responses": [],
-                                "text": conv_prompt
-                            },
-                            "parameters": {
-                                "max_new_tokens": 512,
-                                "temperature": 0.1
-                            }
-                        }
-                        resp = requests.post(url, headers=headers, json=payload, timeout=60)
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
-                                txt = data[0].get("generated_text") or ""
-                                return txt.strip() or "Not available in uploaded documents."
-                            if isinstance(data, dict):
-                                txt = data.get("generated_text") or ""
-                                return txt.strip() or "Not available in uploaded documents."
-                        return "Not available in uploaded documents."
-                    except Exception:
-                        return "Not available in uploaded documents."
+                out = client.text_generation(
+                    prompt,
+                    model=model,
+                    max_new_tokens=512,
+                    temperature=0.1,
+                )
+                return out.strip()
         except Exception as e:
             return f"Error generating answer: {e}"
 
