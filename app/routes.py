@@ -520,9 +520,17 @@ def query():
             logging.info(f"Sample distances from search results: {sample_distances}")
             logging.info(f"All distances: {[r.get('distance') for r in results]}")
         
+        # If no results within threshold, fallback to all results
         if not filtered and results:
             logging.info(f"Falling back to all {len(results)} results as none met distance threshold {Config.VECTOR_MAX_DISTANCE}")
             filtered = results
+        
+        # If we still don't have filtered results but have search results, take the closest one as final fallback
+        if not filtered and results:
+            closest_result = min(results, key=lambda x: x.get('distance', float('inf')))
+            if closest_result:
+                logging.info(f"Taking closest result with distance: {closest_result.get('distance')}")
+                filtered = [closest_result]
         
         # Apply course/semester/subject filters if provided
         doc_map = {d.id: d for d in Document.query.all()}
