@@ -43,11 +43,14 @@ def create_app(config_class=Config):
         
         # Rebuild index from database on startup (this handles Render's ephemeral filesystem)
         print("🔄 Starting vector index rebuild from database...")
+        logging.info("🔄 Starting vector index rebuild from database...")
         try:
             rebuild_index_from_db()
             print("✅ Vector index rebuild completed successfully")
+            logging.info("✅ Vector index rebuild completed successfully")
         except Exception as e:
             print(f"❌ Vector index rebuild failed: {e}")
+            logging.error(f"❌ Vector index rebuild failed: {e}", exc_info=True)
             # Continue anyway - the vector store will be empty but the app should still start
         
         # Background storage auto-sync (disabled in containerized environments like Render)
