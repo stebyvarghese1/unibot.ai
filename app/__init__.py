@@ -37,30 +37,40 @@ def create_app(config_class=Config):
         from app.routes import sync_storage
         
         # Initialize vector store with Supabase persistent storage
-        vector_store = VectorStore()
+        vector_store = VectorStore.get_instance()  # Use singleton instance
         index_name = 'vector_index'
         
         # Try to load existing index first from Supabase storage
+        logging.info("Attempting to load existing vector index from Supabase storage...")
         if vector_store.index_exists(index_name):
+            logging.info("Vector index files found in Supabase storage, attempting to load...")
             try:
                 vector_store.load_index(index_name)
                 print("Loaded existing vector index from Supabase storage")
+                logging.info(f"Successfully loaded vector index. Stats: {vector_store.get_stats()}")
             except Exception as e:
+                logging.error(f"Could not load existing index from Supabase: {e}")
                 print(f"Could not load existing index from Supabase, will rebuild: {e}")
+        else:
+            logging.info("No vector index files found in Supabase storage")
         
         # Rebuild index if AUTO_REBUILD_INDEX is true and API token is available
         if Config.AUTO_REBUILD_INDEX and Config.HUGGINGFACE_API_TOKEN:
+            logging.info("Starting index rebuild process...")
             try:
                 # Optional: sync storage into DB before rebuilding index
                 try:
                     sync_storage()
                 except Exception as e:
+                    logging.warning(f"Storage sync skipped: {e}")
                     print(f"Storage sync skipped: {e}")
                 chunks = DocumentChunk.query.all()
+                logging.info(f"Found {len(chunks)} document chunks to index")
                 if chunks:
                     # Clear existing index and rebuild
                     vector_store.clear()
                     texts = [c.chunk_text for c in chunks]
+                    logging.info(f"Generating embeddings for {len(texts)} text chunks...")
                     embeddings = AIService.get_embeddings(texts)
                     metadata = [{'text': c.chunk_text, 'doc_id': c.document_id} for c in chunks]
                     vector_store.add_documents(embeddings, metadata)
@@ -68,8 +78,9 @@ def create_app(config_class=Config):
                     # Save the rebuilt index to Supabase storage
                     vector_store.save_index(index_name)
                     print(f"Rebuilt and saved vector index to Supabase storage with {len(chunks)} chunks")
-                    print(f"Vector store stats after rebuild: {vector_store.get_stats()}")
+                    logging.info(f"Vector store stats after rebuild: {vector_store.get_stats()}")
             except Exception as e:
+                logging.error(f"Index rebuild failed: {e}")
                 print(f"Index rebuild skipped: {e}")
         
         # Background storage auto-sync (disabled in containerized environments like Render)
