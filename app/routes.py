@@ -318,7 +318,8 @@ def sync_storage_route():
 @admin_required
 def rebuild_index():
     try:
-        vector_store = VectorStore()
+        from app.services.vector_store import VectorStore
+        vector_store = VectorStore.get_instance()
         vector_store.clear()
         
         chunks = DocumentChunk.query.all()
@@ -342,6 +343,9 @@ def rebuild_index():
         
         vector_store.add_documents(embeddings, metadata)
         
+        # Save the rebuilt index to Supabase storage
+        vector_store.save_index('vector_index')
+        
         return jsonify({'message': f'Index rebuilt with {len(chunks)} chunks.'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -349,7 +353,8 @@ def rebuild_index():
 @bp.route('/api/admin/stats', methods=['GET'])
 @admin_required
 def get_stats():
-    vector_store = VectorStore()
+    from app.services.vector_store import VectorStore
+    vector_store = VectorStore.get_instance()
     return jsonify(vector_store.get_stats())
 
 @bp.route('/api/admin/chunks', methods=['GET'])
@@ -473,21 +478,35 @@ def query():
              return jsonify({'error': 'Failed to embed question'}), 500
 
         # 2. Search
-        vector_store = VectorStore()
+        from app.services.vector_store import VectorStore
+        vector_store = VectorStore.get_instance()
         
         # Debug: Check vector store status
         import logging
         logging.info(f"Vector store stats: {vector_store.get_stats()}")
         logging.info(f"Query vector length: {len(q_vec) if q_vec else 'None'}")
+        logging.info(f"Number of chunks in vector store: {len(vector_store.chunks) if hasattr(vector_store, 'chunks') else 'No chunks attr'}")
         
         results = vector_store.search(q_vec, k=8)
         logging.info(f"Vector search returned {len(results)} results")
         
+        # Check if the index has vectors before applying distance filtering
+        stats = vector_store.get_stats()
+        if stats['total_vectors'] == 0:
+            logging.info("Vector store has 0 vectors - no documents indexed")
+            return jsonify({'answer': 'No documents have been indexed yet. Please ensure documents are processed and index is rebuilt.', 'sources': []})
+        
         # Filter low-confidence matches by distance threshold; if empty, fallback to top results
         filtered = [r for r in results if r.get('distance') is not None and r['distance'] <= Config.VECTOR_MAX_DISTANCE]
-        logging.info(f"Filtered results: {len(filtered)} within distance threshold")
+        logging.info(f"Filtered results: {len(filtered)} within distance threshold of {Config.VECTOR_MAX_DISTANCE}")
+        
+        # Log some sample distances for debugging
+        if results:
+            sample_distances = [r.get('distance') for r in results[:5]]
+            logging.info(f"Sample distances from search results: {sample_distances}")
         
         if not filtered and results:
+            logging.info(f"Falling back to all {len(results)} results as none met distance threshold {Config.VECTOR_MAX_DISTANCE}")
             filtered = results
         
         # Apply course/semester/subject filters if provided
@@ -514,6 +533,11 @@ def query():
             if len(all_docs) == 0:
                 return jsonify({'answer': 'No documents have been uploaded yet.', 'sources': []})
             else:
+                # More specific logging for debugging
+                logging.info(f"All documents: {[d.filename for d in all_docs]}")
+                logging.info(f"All document statuses: {[d.status for d in all_docs]}")
+                logging.info(f"Chunks in vector store: {len(vector_store.chunks) if hasattr(vector_store, 'chunks') else 'No chunks attr'}")
+                logging.info(f"Sample of vector store chunks: {vector_store.chunks[:2] if hasattr(vector_store, 'chunks') and vector_store.chunks else 'No chunks'}")
                 return jsonify({'answer': 'Not available in uploaded documents (No context found).', 'sources': []})
             
         # 3. Generate Answer
@@ -681,7 +705,8 @@ def process_document(doc_id):
         # Auto-update index (optional, or wait for manual rebuild)
         # For MVP, let's try to update immediately if small
         try:
-            vector_store = VectorStore()
+            from app.services.vector_store import VectorStore
+            vector_store = VectorStore.get_instance()
             # Need to re-embed just this doc's chunks
             # But for simplicity/consistency with "rebuild" logic, maybe just leave it for manual or background job
             # Or just do it:
@@ -693,6 +718,7 @@ def process_document(doc_id):
             # Try to save the updated index to Supabase storage
             vector_store.save_index('vector_index')
             logging.info(f"Added document {doc.filename} to vector store and saved index")
+            logging.info(f"Vector store now has {vector_store.get_stats()['total_vectors']} vectors")
         except Exception as e:
             logging.error(f"Failed to update vector store with new document: {e}")
             # Continue anyway, user can manually rebuild index later
