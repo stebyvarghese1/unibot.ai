@@ -474,7 +474,10 @@ def query():
                  q_vec = q_embedding[0]
              else:
                  q_vec = q_embedding
+             logging.info(f"Successfully embedded question. Vector length: {len(q_vec)}")
+             logging.info(f"Question embedding sample: {q_vec[:5] if len(q_vec) >= 5 else q_vec}")
         else:
+             logging.error(f"Failed to embed question. Response: {q_embedding}")
              return jsonify({'error': 'Failed to embed question'}), 500
 
         # 2. Search
@@ -487,6 +490,11 @@ def query():
         logging.info(f"Query vector length: {len(q_vec) if q_vec else 'None'}")
         logging.info(f"Number of chunks in vector store: {len(vector_store.chunks) if hasattr(vector_store, 'chunks') else 'No chunks attr'}")
         
+        # Log the actual query vector for debugging
+        if q_vec is not None:
+            logging.info(f"Query vector sample (first 5 values): {q_vec[:5] if len(q_vec) >= 5 else q_vec}")
+            logging.info(f"Query vector magnitude: {sum(x*x for x in q_vec)**00.5}")
+        
         results = vector_store.search(q_vec, k=8)
         logging.info(f"Vector search returned {len(results)} results")
         
@@ -496,6 +504,12 @@ def query():
             logging.info("Vector store has 0 vectors - no documents indexed")
             return jsonify({'answer': 'No documents have been indexed yet. Please ensure documents are processed and index is rebuilt.', 'sources': []})
         
+        # Log sample document vectors for comparison
+        if hasattr(vector_store, 'chunks') and vector_store.chunks:
+            sample_chunk = vector_store.chunks[0] if vector_store.chunks else None
+            if sample_chunk and 'text' in sample_chunk:
+                logging.info(f"Sample document chunk text: {sample_chunk['text'][:100]}...")
+        
         # Filter low-confidence matches by distance threshold; if empty, fallback to top results
         filtered = [r for r in results if r.get('distance') is not None and r['distance'] <= Config.VECTOR_MAX_DISTANCE]
         logging.info(f"Filtered results: {len(filtered)} within distance threshold of {Config.VECTOR_MAX_DISTANCE}")
@@ -504,6 +518,7 @@ def query():
         if results:
             sample_distances = [r.get('distance') for r in results[:5]]
             logging.info(f"Sample distances from search results: {sample_distances}")
+            logging.info(f"All distances: {[r.get('distance') for r in results]}")
         
         if not filtered and results:
             logging.info(f"Falling back to all {len(results)} results as none met distance threshold {Config.VECTOR_MAX_DISTANCE}")
