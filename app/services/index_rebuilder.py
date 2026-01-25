@@ -41,9 +41,14 @@ def rebuild_index_from_db():
         
         if texts:
             # Generate embeddings for all texts at once
+            print(f"Generating embeddings for {len(texts)} texts...")
+            logging.info(f"Generating embeddings for {len(texts)} texts...")
             embeddings = AIService.get_embeddings(texts)
             
             if embeddings and len(embeddings) > 0:
+                print(f"Received embeddings of length: {len(embeddings)}")
+                logging.info(f"Received embeddings of length: {len(embeddings)}")
+                
                 # Add documents to vector store
                 vector_store.add_documents(embeddings, metadatas)
                 
@@ -53,9 +58,18 @@ def rebuild_index_from_db():
                 print(f"✅ Rebuilt index with {len(texts)} vectors")
                 logging.info(f"Successfully rebuilt vector index with {len(texts)} vectors")
                 
-                # Log final stats
+                # Log final stats - THIS IS CRITICAL FOR DEBUGGING
                 stats = vector_store.get_stats()
+                print(f"📊 Final vector store stats: {stats}")
                 logging.info(f"Final vector store stats: {stats}")
+                
+                # Double-check that the index is actually populated
+                if stats['total_vectors'] > 0:
+                    print(f"✅ Vector store is ready with {stats['total_vectors']} vectors")
+                    logging.info(f"✅ Vector store is ready with {stats['total_vectors']} vectors")
+                else:
+                    print("❌ WARNING: Vector store has 0 vectors after rebuild!")
+                    logging.warning("❌ WARNING: Vector store has 0 vectors after rebuild!")
             else:
                 print("❌ Failed to generate embeddings for document chunks")
                 logging.error("Failed to generate embeddings for document chunks")
