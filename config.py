@@ -41,6 +41,6 @@ class Config:
     SYNC_STORAGE_INTERVAL = int(os.getenv('SYNC_STORAGE_INTERVAL', '120'))
     
     # Retrieval tuning
-    VECTOR_MAX_DISTANCE = float(os.getenv('VECTOR_MAX_DISTANCE', '1.2'))
+    VECTOR_MAX_DISTANCE = float(os.getenv('VECTOR_MAX_DISTANCE', '2.0'))  # Increased from 1.2 to 2.0 for testing
 
 # No local upload directory needed - using Supabase storage only
