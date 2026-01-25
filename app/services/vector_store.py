@@ -192,17 +192,18 @@ class VectorStore:
                         os.unlink(tmp_path)
                     raise read_error
                 
-                # Clean up temporary file
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
-                
                 # Load metadata
                 meta_bytes = supa.download_file(f"indexes/{index_name}.meta")
                 meta_data = pickle.loads(meta_bytes)
                 self.chunks = meta_data.get('chunks', [])
                 self.dimension = meta_data.get('dimension', 384)
                 
+                # Clean up temporary file
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+                
                 logging.info(f"Vector index loaded from Supabase storage as {index_name}")
+                logging.info(f"Loaded index with {len(self.chunks)} chunks and {self.index.ntotal if self.index else 0} vectors")
                 return True
             except Exception as download_error:
                 logging.info(f"No existing index found in Supabase storage: {download_error}")
