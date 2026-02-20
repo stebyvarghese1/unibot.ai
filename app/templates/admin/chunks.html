@@ -1,0 +1,345 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Chunks - Admin Dashboard{% endblock %}
+{% block content %}
+<div class="space-y-4 sm:space-y-6 w-full min-w-0">
+  <div class="bg-slate-900 rounded-xl shadow-2xl border border-slate-800 p-4">
+    <div class="flex flex-col md:flex-row md:items-center gap-4">
+      <div class="flex-1 min-w-0">
+        <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Filter by document</label>
+        <select id="document-filter"
+          class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0">
+          <option value="">All documents</option>
+        </select>
+      </div>
+      <div class="flex-1 min-w-0">
+        <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Search Chunks</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <i class="fa-solid fa-search text-slate-600"></i>
+          </span>
+          <input type="text" id="chunk-search" placeholder="Search in content or filename..."
+            class="w-full pl-10 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+      <button type="button" onclick="loadChunks()"
+        class="btn-icon shrink-0 self-end md:self-auto text-slate-300 hover:text-white" title="Refresh">
+        <i class="fa-solid fa-sync-alt"></i> Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabs Navigation -->
+  <div class="flex border-b border-slate-800 bg-slate-900 rounded-t-xl px-2">
+    <button onclick="switchTab('all')" id="tab-all"
+      class="px-4 py-3 text-sm font-medium border-b-2 border-indigo-500 text-indigo-400 transition-colors">
+      <i class="fa-solid fa-layer-group mr-2"></i>All Chunks
+    </button>
+    <button onclick="switchTab('doc')" id="tab-doc"
+      class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-700 transition-colors">
+      <i class="fa-solid fa-file-alt mr-2"></i>Documents
+    </button>
+    <button onclick="switchTab('web')" id="tab-web"
+      class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-700 transition-colors">
+      <i class="fa-solid fa-globe mr-2"></i>Websites
+    </button>
+  </div>
+
+  <div class="bg-slate-900 rounded-b-xl shadow-2xl border-x border-b border-slate-800 overflow-hidden min-w-0">
+    <div
+      class="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-800 bg-slate-800/30 flex flex-wrap justify-between items-center gap-2">
+      <div class="min-w-0">
+        <h2 id="chunks-title" class="text-base sm:text-lg font-semibold text-white truncate">Knowledge Chunks</h2>
+        <p id="chunks-subtitle" class="text-xs text-slate-500">Loading...</p>
+      </div>
+    </div>
+
+    <!-- Mobile: card list -->
+    <div id="chunk-cards-wrap" class="sm:hidden p-3 space-y-3 overflow-y-auto max-h-[70vh]">
+      <div id="chunk-list-cards" class="space-y-3"></div>
+      <div id="empty-state-cards" class="hidden py-8 text-center text-slate-600">
+        <i class="fa-solid fa-layer-group text-3xl mb-2 opacity-20"></i>
+        <p class="text-sm font-medium">No chunks found in this category.</p>
+      </div>
+    </div>
+
+    <!-- Desktop: table -->
+    <div class="hidden sm:block overflow-x-auto hide-h-scrollbar">
+      <table class="min-w-full divide-y divide-slate-800 table-fixed">
+        <thead class="bg-slate-800/50">
+          <tr>
+            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest w-14">ID</th>
+            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest w-28 sm:w-36">
+              Source</th>
+            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest w-14">Type</th>
+            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest w-14">Index</th>
+            <th class="px-3 py-3 text-right text-xs font-black text-slate-500 uppercase tracking-widest w-28 sm:w-32">
+              Actions</th>
+          </tr>
+        </thead>
+        <tbody id="chunk-list" class="bg-slate-900 divide-y divide-slate-800"></tbody>
+      </table>
+      <div id="empty-state" class="hidden py-16 text-center text-slate-600">
+        <i class="fa-solid fa-layer-group text-5xl mb-4 opacity-10"></i>
+        <p class="text-lg font-black uppercase tracking-widest">No chunks found.</p>
+        <p class="text-sm font-medium">Try changing filters or search terms.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Full content modal -->
+<div id="chunk-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="chunk-modal-title"
+  role="dialog" aria-modal="true">
+  <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:p-0">
+    <div class="fixed inset-0 bg-slate-950/80 transition-opacity backdrop-blur-md" onclick="closeChunkModal()"></div>
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+    <div
+      class="inline-block align-bottom bg-slate-900 rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full border border-slate-800">
+      <div class="bg-slate-900 px-6 pt-5 pb-4">
+        <div class="flex items-center justify-between mb-4">
+          <h3 id="chunk-modal-title" class="text-xl leading-6 font-bold text-white">Chunk content</h3>
+          <button onclick="closeChunkModal()" class="text-slate-500 hover:text-slate-300 transition-colors">
+            <i class="fa-solid fa-times text-lg"></i>
+          </button>
+        </div>
+        <div id="chunk-modal-body"
+          class="mt-2 max-h-96 overflow-y-auto p-5 bg-slate-950 rounded-xl text-sm text-slate-300 leading-relaxed whitespace-pre-wrap border border-slate-800 font-mono">
+        </div>
+      </div>
+      <div class="bg-slate-800/50 px-6 py-4 flex flex-col sm:flex-row-reverse sm:gap-3">
+        <button type="button" onclick="closeChunkModal()"
+          class="px-4 py-2 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-700 hover:text-white font-medium transition-all shadow-sm">Close</button>
+        <button type="button" id="chunk-modal-delete-btn"
+          class="px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+          <i class="fa-solid fa-trash-alt"></i> Delete chunk
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  var chunkModalChunkId = null;
+  var currentTab = 'all'; // all, doc, web
+  var chunksCache = [];
+
+  function openChunkModal(title, text, chunkId) {
+    chunkModalChunkId = chunkId != null ? chunkId : null;
+    document.getElementById('chunk-modal-title').textContent = title || 'Chunk content';
+    document.getElementById('chunk-modal-body').textContent = text || '';
+    var deleteBtn = document.getElementById('chunk-modal-delete-btn');
+    if (deleteBtn) {
+      deleteBtn.style.display = chunkModalChunkId != null ? 'flex' : 'none';
+    }
+    document.getElementById('chunk-modal').classList.remove('hidden');
+  }
+
+  function closeChunkModal() {
+    document.getElementById('chunk-modal').classList.add('hidden');
+    chunkModalChunkId = null;
+  }
+
+  async function loadDocumentsForFilter() {
+    const sel = document.getElementById('document-filter');
+    if (!sel) return;
+    try {
+      const res = await fetch('/api/admin/documents');
+      const docs = await res.json();
+      const currentVal = sel.value;
+      sel.innerHTML = '<option value="">All documents</option>';
+      (docs || []).forEach(function (d) {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.filename || ('Document #' + d.id);
+        sel.appendChild(opt);
+      });
+      if (currentVal) sel.value = currentVal;
+    } catch (e) { console.error(e); }
+  }
+
+  function showChunkFull(id) {
+    var chunk = chunksCache.find(function (c) { return c.id === id; });
+    if (chunk) openChunkModal('Chunk #' + id, chunk.full_text || chunk.chunk_text || '', id);
+  }
+
+  async function deleteChunk(id) {
+    if (!confirm('Delete this chunk? The document will remain; you can rebuild the index from Dashboard if needed.')) return;
+    try {
+      var res = await fetch('/api/admin/chunks/' + id, { method: 'DELETE' });
+      var data = await res.json();
+      if (res.ok) {
+        loadChunks();
+      } else {
+        alert(data.error || 'Failed to delete chunk');
+      }
+    } catch (e) {
+      alert('Error deleting chunk');
+    }
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+
+    // Update UI
+    ['all', 'doc', 'web'].forEach(t => {
+      const btn = document.getElementById('tab-' + t);
+      if (t === tab) {
+        btn.classList.add('border-indigo-500', 'text-indigo-400');
+        btn.classList.remove('border-transparent', 'text-slate-500');
+      } else {
+        btn.classList.remove('border-indigo-500', 'text-indigo-400');
+        btn.classList.add('border-transparent', 'text-slate-500');
+      }
+    });
+
+    renderChunks();
+  }
+
+  function renderChunks() {
+    const tbody = document.getElementById('chunk-list');
+    const emptyState = document.getElementById('empty-state');
+    const cardsWrap = document.getElementById('chunk-list-cards');
+    const emptyStateCards = document.getElementById('empty-state-cards');
+    const subtitle = document.getElementById('chunks-subtitle');
+    const searchTerm = (document.getElementById('chunk-search') ? document.getElementById('chunk-search').value : '').toLowerCase();
+
+    // Reset view
+    tbody.innerHTML = '';
+    if (cardsWrap) cardsWrap.innerHTML = '';
+
+    // Filter by tab and search
+    let filtered = chunksCache;
+    if (currentTab === 'doc') {
+      filtered = chunksCache.filter(c => !c.is_web);
+    } else if (currentTab === 'web') {
+      filtered = chunksCache.filter(c => c.is_web);
+    }
+
+    if (searchTerm) {
+      filtered = filtered.filter(c =>
+        (c.full_text || c.chunk_text || '').toLowerCase().includes(searchTerm) ||
+        (c.document_filename || '').toLowerCase().includes(searchTerm)
+      );
+    }
+
+    if (filtered.length === 0) {
+      emptyState.classList.remove('hidden');
+      if (emptyStateCards) emptyStateCards.classList.remove('hidden');
+      subtitle.textContent = 'Found 0 items matches your filters';
+    } else {
+      emptyState.classList.add('hidden');
+      if (emptyStateCards) emptyStateCards.classList.add('hidden');
+      subtitle.textContent = 'Showing ' + filtered.length + ' chunks';
+
+      filtered.forEach(chunk => {
+        // Table Row
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/50 transition-colors group';
+        const typeBadge = chunk.is_web
+          ? '<span class="px-2 py-0.5 text-[10px] font-black uppercase tracking-widest bg-purple-500/10 text-purple-400 rounded-full border border-purple-500/20"><i class="fa-solid fa-globe mr-1"></i>Web</span>'
+          : '<span class="px-2 py-0.5 text-[10px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 rounded-full border border-indigo-500/20"><i class="fa-solid fa-file-alt mr-1"></i>Doc</span>';
+
+        tr.innerHTML =
+          '<td class="px-3 py-3 whitespace-nowrap text-sm text-slate-500 font-mono">#' + chunk.id + '</td>' +
+          '<td class="px-3 py-3 whitespace-nowrap text-sm font-bold text-white truncate" title="' + escapeHtml(chunk.document_filename || '') + '">' +
+          '<div class="flex flex-col">' +
+          '<span class="truncate max-w-[200px]">' + escapeHtml(chunk.document_filename || 'Unknown') + '</span>' +
+          '<span class="text-[10px] text-slate-600 font-black uppercase tracking-wide">' + (chunk.document_id || 'N/A') + '</span>' +
+          '</div>' +
+          '</td>' +
+          '<td class="px-3 py-3 whitespace-nowrap">' + typeBadge + '</td>' +
+          '<td class="px-3 py-3 whitespace-nowrap text-sm text-slate-400 font-medium">' + (chunk.chunk_index ?? '') + '</td>' +
+          '<td class="px-3 py-3 whitespace-nowrap text-right text-sm">' +
+          '<div class="flex gap-2 justify-end">' +
+          '<button type="button" onclick="showChunkFull(' + chunk.id + ')" class="btn-icon p-1.5 text-indigo-400 hover:text-white" title="View Detail"><i class="fa-solid fa-eye"></i></button>' +
+          '<button type="button" onclick="deleteChunk(' + chunk.id + ')" class="btn-icon-danger p-1.5 text-red-400 hover:text-white" title="Delete"><i class="fa-solid fa-trash-alt"></i></button>' +
+          '</div>' +
+          '</td>';
+        tbody.appendChild(tr);
+
+        // Mobile Card
+        if (cardsWrap) {
+          const card = document.createElement('div');
+          card.className = 'bg-slate-950 border border-slate-800 rounded-xl p-4 shadow-xl';
+          card.innerHTML =
+            '<div class="flex justify-between items-start mb-2">' +
+            '<div>' +
+            '<p class="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1 font-mono">#' + chunk.id + ' · Index ' + (chunk.chunk_index ?? '') + '</p>' +
+            '<p class="text-sm font-bold text-white line-clamp-1">' + escapeHtml(chunk.document_filename) + '</p>' +
+            '</div>' +
+            typeBadge +
+            '</div>' +
+            '<p class="text-xs text-slate-500 mb-3 line-clamp-2 italic font-medium">"' + escapeHtml((chunk.full_text || chunk.chunk_text || '').substring(0, 100)) + '..."</p>' +
+            '<div class="flex gap-2">' +
+            '<button onclick="showChunkFull(' + chunk.id + ')" class="flex-1 py-1.5 bg-slate-900 border border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400 rounded-lg hover:bg-slate-800 hover:text-white transition-all">View Details</button>' +
+            '<button onclick="deleteChunk(' + chunk.id + ')" class="flex-1 py-1.5 bg-red-500/10 text-[10px] font-black uppercase tracking-widest text-red-500 rounded-lg hover:bg-red-500/20 transition-all">Delete</button>' +
+            '</div>';
+          cardsWrap.appendChild(card);
+        }
+      });
+    }
+  }
+
+  async function loadChunks() {
+    const tbody = document.getElementById('chunk-list');
+    const cardsWrap = document.getElementById('chunk-list-cards');
+    const subtitle = document.getElementById('chunks-subtitle');
+    const docId = document.getElementById('document-filter') ? document.getElementById('document-filter').value : '';
+
+    tbody.innerHTML = '<tr><td colspan="5" class="px-3 py-10 text-center text-slate-500 text-sm font-medium"><i class="fa-solid fa-spinner fa-spin mr-2 text-indigo-500"></i>Indexing knowledge base...</td></tr>';
+    if (cardsWrap) cardsWrap.innerHTML = '<div class="text-center py-10 text-slate-500 text-sm font-medium"><i class="fa-solid fa-spinner fa-spin mr-2 text-indigo-500"></i>Scanning vectors...</div>';
+
+    try {
+      const url = docId ? '/api/admin/chunks?document_id=' + encodeURIComponent(docId) : '/api/admin/chunks';
+      const res = await fetch(url);
+      const data = await res.json();
+      chunksCache = data || [];
+      renderChunks();
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="5" class="px-3 py-10 text-center text-red-500 text-sm">Error loading chunks</td></tr>';
+      if (cardsWrap) cardsWrap.innerHTML = '<p class="text-center text-red-500 text-sm py-4">Error loading chunks</p>';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var modalDeleteBtn = document.getElementById('chunk-modal-delete-btn');
+    if (modalDeleteBtn) {
+      modalDeleteBtn.addEventListener('click', function () {
+        if (chunkModalChunkId != null) {
+          closeChunkModal();
+          deleteChunk(chunkModalChunkId);
+        }
+      });
+    }
+
+    var docFilter = document.getElementById('document-filter');
+    if (docFilter) docFilter.addEventListener('change', loadChunks);
+
+    var searchInput = document.getElementById('chunk-search');
+    if (searchInput) {
+      let debounce;
+      searchInput.addEventListener('input', function () {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => renderChunks(), 300);
+      });
+    }
+
+    loadDocumentsForFilter().then(function () {
+      var params = new URLSearchParams(window.location.search);
+      var docId = params.get('document_id');
+      if (docId && document.getElementById('document-filter')) {
+        document.getElementById('document-filter').value = docId;
+      }
+      loadChunks();
+    });
+  });
+</script>
+{% endblock %}

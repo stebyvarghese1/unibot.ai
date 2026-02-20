@@ -1,0 +1,528 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto w-full min-w-0 space-y-10">
+  <!-- Dynamic Welcome Header -->
+  <div
+    class="relative overflow-hidden bg-slate-900 rounded-[2rem] border border-slate-800 shadow-2xl p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div class="relative z-10">
+      <h1 class="text-3xl font-black text-white tracking-tight mb-2">Command Center</h1>
+      <p class="text-slate-400 font-medium max-w-md">Orchestrate your AI's knowledge architecture and manage system-wide
+        intelligence settings.</p>
+    </div>
+    <div class="relative z-10 flex gap-3">
+      <div class="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl px-5 py-3 flex items-center gap-3">
+        <div
+          class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-900/40">
+          <i class="fa-solid fa-server text-sm"></i>
+        </div>
+        <div>
+          <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1">Engine Status
+          </p>
+          <div class="flex items-center gap-1.5">
+            <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span class="text-xs font-black text-emerald-400 uppercase tracking-wide">Stable & Online</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Decorative element -->
+    <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-600/10 rounded-full blur-3xl"></div>
+  </div>
+
+  <!-- Real-time Stats Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div
+      class="bg-slate-900 rounded-[2rem] border border-slate-800 shadow-xl p-7 group hover:bg-slate-800/50 transition-all duration-300 transform hover:-translate-y-1">
+      <div
+        class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 border border-indigo-500/20">
+        <i class="fa-solid fa-layer-group text-lg"></i>
+      </div>
+      <p class="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Knowledge Chunks</p>
+      <div class="flex items-baseline gap-2">
+        <p id="vector-count" class="text-3xl font-black text-white tabular-nums">---</p>
+        <span class="text-[10px] font-bold text-slate-500 uppercase">Vectors</span>
+      </div>
+    </div>
+
+    <div
+      class="bg-slate-900 rounded-[2rem] border border-slate-800 shadow-xl p-7 group hover:bg-slate-800/50 transition-all duration-300 transform hover:-translate-y-1">
+      <div
+        class="w-12 h-12 rounded-2xl bg-violet-500/10 text-violet-400 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-violet-600 group-hover:text-white transition-all duration-300 border border-violet-500/20">
+        <i class="fa-solid fa-brain text-lg"></i>
+      </div>
+      <p class="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Intelligence Scale</p>
+      <div class="flex items-baseline gap-2">
+        <p id="vector-dim" class="text-3xl font-black text-white tabular-nums">---</p>
+        <span class="text-[10px] font-bold text-slate-500 uppercase">Dimensions</span>
+      </div>
+    </div>
+
+    <div
+      class="bg-slate-900 rounded-[2rem] border border-slate-800 shadow-xl p-7 group hover:bg-slate-800/50 transition-all duration-300 transform hover:-translate-y-1">
+      <div
+        class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 border border-emerald-500/20">
+        <i class="fa-solid fa-file-shield text-lg"></i>
+      </div>
+      <p class="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Auth Sessions</p>
+      <div class="flex items-baseline gap-2">
+        <p class="text-3xl font-black text-white tabular-nums">Active</p>
+        <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Secured</span>
+      </div>
+    </div>
+
+    <div
+      class="bg-indigo-600 rounded-[2rem] shadow-lg shadow-indigo-900/40 p-7 group hover:shadow-indigo-600/50 transition-all duration-300 flex flex-col justify-between">
+      <div>
+        <h4 class="text-white font-black text-sm uppercase tracking-widest mb-2">New Knowledge?</h4>
+        <p class="text-indigo-100 text-[11px] font-medium leading-relaxed mb-4">Initialize new document processing to
+          expand AI capabilities.</p>
+      </div>
+      <a href="/admin/documents"
+        class="w-full bg-slate-950 text-white border border-white/10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center shadow-lg transform hover:scale-[1.02] active:scale-[0.98] transition-all hover:bg-slate-900">
+        Upload Materials
+      </a>
+    </div>
+  </div>
+
+  <!-- Management Utilities Console -->
+  <div class="bg-slate-900 rounded-[2.5rem] border border-slate-800 shadow-2xl overflow-hidden">
+    <div class="px-8 py-6 border-b border-slate-800 flex items-center justify-between bg-slate-800/30">
+      <div class="flex items-center gap-4">
+        <div
+          class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
+          <i class="fa-solid fa-sliders text-sm"></i>
+        </div>
+        <div>
+          <h3 class="text-sm font-black text-white uppercase tracking-widest">System Maintenance Console</h3>
+          <p class="text-[10px] font-bold text-slate-500 uppercase">Core operational overrides & utilities</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-800">
+      <!-- Rebuild -->
+      <div class="p-8 hover:bg-slate-800/40 transition-colors flex flex-col h-full group">
+        <div
+          class="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-6 group-hover:rotate-12 transition-transform border border-blue-500/20">
+          <i class="fa-solid fa-microchip text-lg"></i>
+        </div>
+        <h5 class="text-xs font-black text-white uppercase tracking-widest mb-2">Storage Logic</h5>
+        <p class="text-[11px] font-medium text-slate-400 mb-8 flex-grow">Deep re-indexing of all vector data and memory
+          allocation.</p>
+        <div class="space-y-3 mt-auto">
+          <p id="rebuild-status"
+            class="text-[9px] font-black text-indigo-400 uppercase tracking-tight min-h-[14px] px-1">
+          </p>
+          <button id="rebuild-btn"
+            class="w-full py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-900/40 hover:bg-blue-700 transition-all">
+            Execute Rebuild
+          </button>
+        </div>
+      </div>
+
+      <!-- Knowledge Map -->
+      <div class="p-8 hover:bg-slate-800/40 transition-colors flex flex-col h-full group">
+        <div
+          class="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-6 group-hover:rotate-12 transition-transform border border-purple-500/20">
+          <i class="fa-solid fa-sitemap text-lg"></i>
+        </div>
+        <h5 class="text-xs font-black text-white uppercase tracking-widest mb-2">Knowledge Map</h5>
+        <p class="text-[11px] font-medium text-slate-400 mb-8 flex-grow">Manage the hierarchy of courses, semesters, and
+          subjects.</p>
+        <div class="mt-auto">
+          <button id="manage-filters-btn"
+            class="w-full py-4 bg-purple-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-purple-900/40 hover:bg-purple-700 transition-all">
+            Orchestrate
+          </button>
+        </div>
+      </div>
+
+      <!-- Cloud Sync -->
+      <div class="p-8 hover:bg-slate-800/40 transition-colors flex flex-col h-full group">
+        <div
+          class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-6 group-hover:rotate-12 transition-transform border border-emerald-500/20">
+          <i class="fa-solid fa-cloud-bolt text-lg"></i>
+        </div>
+        <h5 class="text-xs font-black text-white uppercase tracking-widest mb-2">Cloud Pulse</h5>
+        <p class="text-[11px] font-medium text-slate-400 mb-8 flex-grow">Synchronize local index with remote storage.
+        </p>
+        <div class="space-y-3 mt-auto">
+          <p id="sync-status" class="text-[9px] font-black text-emerald-400 uppercase tracking-tight min-h-[14px] px-1">
+          </p>
+          <button id="sync-btn"
+            class="w-full py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-900/40 hover:bg-emerald-700 transition-all">
+            Force Sync
+          </button>
+        </div>
+      </div>
+
+      <!-- Configuration -->
+      <div class="p-8 hover:bg-slate-800/40 transition-colors flex flex-col h-full group">
+        <div
+          class="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center mb-6 group-hover:rotate-12 transition-transform border border-orange-500/20">
+          <i class="fa-solid fa-user-lock text-lg"></i>
+        </div>
+        <h5 class="text-xs font-black text-white uppercase tracking-widest mb-2">Secure Panel</h5>
+        <p class="text-[11px] font-medium text-slate-400 mb-8 flex-grow">Update administrator credentials and security.
+        </p>
+        <div class="mt-auto">
+          <button id="admin-acc-btn"
+            class="w-full py-4 bg-orange-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-900/40 hover:bg-orange-700 transition-all">
+            Configure Access
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Stats loader
+  async function loadStats() {
+    try {
+      const res = await fetch('/api/admin/stats');
+      const data = await res.json();
+      document.getElementById('vector-count').innerText = data.total_vectors || 0;
+      document.getElementById('vector-dim').innerText = data.dimension || 0;
+    } catch (e) {
+      document.getElementById('vector-count').innerText = '0';
+      document.getElementById('vector-dim').innerText = '0';
+    }
+  }
+
+  // Maintenance Handlers
+  function setupAction(btnId, statusId, endpoint) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      const originalText = btn.innerText;
+      const status = document.getElementById(statusId);
+      btn.disabled = true;
+      btn.classList.add('opacity-70', 'cursor-not-allowed');
+      if (status) status.innerText = 'Initializing Operation...';
+
+      try {
+        const res = await fetch(endpoint, { method: 'POST' });
+        const data = await res.json();
+        if (status) status.innerText = (data.message || data.error).toUpperCase();
+        loadStats();
+      } catch (err) {
+        if (status) status.innerText = 'OPERATION FAILED';
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-70', 'cursor-not-allowed');
+        setTimeout(() => { if (status) status.innerText = ''; }, 6000);
+      }
+    });
+  }
+
+  setupAction('rebuild-btn', 'rebuild-status', '/api/admin/rebuild-index');
+  setupAction('sync-btn', 'sync-status', '/api/admin/sync-storage');
+
+  // Admin Account Modal
+  const accBtn = document.getElementById('admin-acc-btn');
+  if (accBtn) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 z-[100] hidden flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="this.parentElement.classList.add('hidden')"></div>
+      <div class="relative bg-slate-950 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-slate-800 overflow-hidden transform transition-all">
+        <div class="px-8 py-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+          <h3 class="text-xs font-black text-white uppercase tracking-widest">Security Override</h3>
+          <button type="button" class="text-slate-500 hover:text-white transition-colors close-modal"><i class="fa-solid fa-times"></i></button>
+        </div>
+        <div class="p-8 space-y-6">
+          <div class="space-y-4">
+            <div>
+              <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">Administrator Email</label>
+              <input id="acc-email" type="email" class="w-full bg-slate-900 border-2 border-transparent rounded-2xl px-5 py-4 text-sm font-bold text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-600" placeholder="admin@university.edu">
+            </div>
+          </div>
+          <div id="acc-msg" class="text-[9px] font-black text-indigo-400 uppercase tracking-widest px-1 min-h-[1rem]"></div>
+          <div class="flex flex-col gap-3 pt-2">
+            <button type="button" id="acc-save" class="w-full py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-900/40 hover:bg-indigo-700 transition-all">Update Credentials</button>
+            <button type="button" class="w-full py-3 rounded-2xl text-[10px] font-black uppercase text-slate-500 hover:bg-slate-900 transition-all close-modal">Dismiss</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    accBtn.addEventListener('click', () => {
+      modal.classList.remove('hidden');
+      // Fetch current email
+      fetch('/api/admin/admin-account').then(r => r.json()).then(d => {
+        if (d.email) document.getElementById('acc-email').value = d.email;
+      });
+    });
+    modal.querySelectorAll('.close-modal').forEach(e => e.addEventListener('click', () => modal.classList.add('hidden')));
+
+    document.getElementById('acc-save').addEventListener('click', async () => {
+      const email = document.getElementById('acc-email').value;
+      const msg = document.getElementById('acc-msg');
+      try {
+        const res = await fetch('/api/admin/admin-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        msg.innerText = (data.message || data.error).toUpperCase();
+        if (res.ok) setTimeout(() => modal.classList.add('hidden'), 2000);
+      } catch (e) { msg.innerText = 'UPDATE FAILED'; }
+    });
+  }
+
+  loadStats();
+</script>
+
+<!-- Filter Orchestration Modal (Redesigned) -->
+<div id="filter-modal" class="fixed inset-0 z-[120] hidden" role="dialog" aria-modal="true">
+  <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity" onclick="closeFilterModal()"></div>
+  <div class="fixed inset-0 z-10 overflow-y-auto">
+    <div class="flex min-h-full items-stretch sm:items-center justify-center p-0 sm:p-6 lg:p-12">
+      <div
+        class="relative w-full max-w-7xl h-full sm:h-[90vh] flex flex-col bg-slate-950 shadow-2xl sm:rounded-[3rem] overflow-hidden border border-slate-800">
+        <!-- Modal Header -->
+        <div class="bg-slate-900 px-8 py-6 border-b border-slate-800 flex justify-between items-center shrink-0">
+          <div class="flex items-center gap-4">
+            <div
+              class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <i class="fa-solid fa-diagram-project text-lg"></i>
+            </div>
+            <div>
+              <h3 class="text-base font-black text-white uppercase tracking-widest">Dropdown Orchestration</h3>
+              <p class="text-[10px] font-bold text-slate-500 uppercase">Hierarchical Knowledge Mapping</p>
+            </div>
+          </div>
+          <button type="button" onclick="closeFilterModal()"
+            class="w-10 h-10 rounded-full bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center">
+            <i class="fa-solid fa-times"></i>
+          </button>
+        </div>
+
+        <!-- Orchestration Grid -->
+        <div class="flex-1 p-8 overflow-y-auto">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full">
+            <!-- Stage 1: Course -->
+            <div class="flex flex-col bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-800 overflow-hidden">
+              <div class="px-6 py-5 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
+                <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">01. Master Courses</span>
+                <span class="text-[9px] font-black text-white bg-indigo-600 px-2 py-1 rounded-lg"
+                  id="course-count-badge">0</span>
+              </div>
+              <div class="p-6 bg-slate-900 border-b border-slate-800">
+                <div class="flex gap-2">
+                  <input type="text" id="new-course" placeholder="Ex: Computer Science"
+                    class="flex-1 px-5 py-3.5 text-sm font-bold bg-slate-950 border-2 border-transparent rounded-2xl focus:border-indigo-500 text-white outline-none transition-all placeholder:text-slate-600">
+                  <button type="button" onclick="addFilter('course')"
+                    class="w-14 h-14 bg-indigo-600 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-indigo-700 transition-all shrink-0">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+              <ul id="list-course" class="flex-1 overflow-y-auto p-6 space-y-3 custom-scrollbar"></ul>
+            </div>
+
+            <!-- Stage 2: Semester -->
+            <div class="flex flex-col bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-800 overflow-hidden">
+              <div class="px-6 py-5 border-b border-slate-800 bg-slate-800/30">
+                <span class="text-[10px] font-black text-violet-400 uppercase tracking-widest">02. Selected
+                  Semester</span>
+              </div>
+              <div class="p-6 bg-slate-900 border-b border-slate-800">
+                <div id="sem-input-area"
+                  class="flex gap-2 opacity-30 pointer-events-none transition-all duration-500 transform translate-y-2">
+                  <input type="text" id="new-semester" placeholder="Ex: Semester 1"
+                    class="flex-1 px-5 py-3.5 text-sm font-bold bg-slate-950 border-2 border-transparent rounded-2xl focus:border-violet-500 text-white outline-none transition-all placeholder:text-slate-600">
+                  <button type="button" onclick="addFilter('semester')"
+                    class="w-14 h-14 bg-violet-600 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-violet-700 transition-all shrink-0">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+              <ul id="list-semester"
+                class="flex-1 overflow-y-auto p-6 space-y-3 text-[10px] font-bold text-slate-500 text-center italic flex flex-col items-center justify-center uppercase tracking-widest">
+                <i class="fa-solid fa-arrow-left mb-2 opacity-40"></i>
+                Select parent course
+              </ul>
+            </div>
+
+            <!-- Stage 3: Subject -->
+            <div class="flex flex-col bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-800 overflow-hidden">
+              <div class="px-6 py-5 border-b border-slate-800 bg-slate-800/30">
+                <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">03. Target
+                  Subjects</span>
+              </div>
+              <div class="p-6 bg-slate-900 border-b border-slate-800">
+                <div id="sub-input-area"
+                  class="flex gap-2 opacity-30 pointer-events-none transition-all duration-500 transform translate-y-2">
+                  <input type="text" id="new-subject" placeholder="Ex: Data Structures"
+                    class="flex-1 px-5 py-3.5 text-sm font-bold bg-slate-950 border-2 border-transparent rounded-2xl focus:border-emerald-500 text-white outline-none transition-all placeholder:text-slate-600">
+                  <button type="button" onclick="addFilter('subject')"
+                    class="w-14 h-14 bg-emerald-600 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-emerald-700 transition-all shrink-0">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+              <ul id="list-subject"
+                class="flex-1 overflow-y-auto p-6 space-y-3 text-[10px] font-bold text-slate-500 text-center italic flex flex-col items-center justify-center uppercase tracking-widest">
+                <i class="fa-solid fa-arrow-left mb-2 opacity-40"></i>
+                Select semester
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let allFilters = [];
+  let selectedCourseId = null;
+  let selectedSemesterId = null;
+
+  async function loadFilterOptions() {
+    try {
+      const res = await fetch('/api/admin/filter-options');
+      const data = await res.json();
+      allFilters = data.all || [];
+      renderManageLists();
+    } catch (e) { console.error('Error loading filters', e); }
+  }
+
+  function renderManageLists() {
+    if (!document.getElementById('list-course')) return;
+    renderCourseList();
+    renderSemesterList();
+    renderSubjectList();
+    document.getElementById('course-count-badge').innerText = allFilters.filter(x => x.category === 'course').length;
+  }
+
+  function renderCourseList() {
+    const ul = document.getElementById('list-course');
+    const items = allFilters.filter(x => x.category === 'course').sort((a, b) => a.value.localeCompare(b.value));
+    ul.innerHTML = '';
+    items.forEach(item => {
+      const li = document.createElement('li');
+      const active = selectedCourseId === item.id;
+      li.className = `group flex justify-between items-center px-5 py-4 rounded-2xl cursor-pointer transition-all border-2 ${active ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-900/40 scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-indigo-500/50 hover:bg-slate-900 hover:text-white'}`;
+      li.onclick = (e) => { if (!e.target.closest('button')) selectCourse(item.id); };
+      li.innerHTML = `
+        <span class="text-sm font-bold tracking-tight">${item.value}</span>
+        <button type="button" onclick="deleteFilter(${item.id})" class="w-8 h-8 flex items-center justify-center rounded-xl bg-transparent hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"><i class="fa-solid fa-trash-alt text-[10px]"></i></button>
+      `;
+      ul.appendChild(li);
+    });
+  }
+
+  function selectCourse(id) {
+    selectedCourseId = id;
+    selectedSemesterId = null;
+    renderManageLists();
+    const area = document.getElementById('sem-input-area');
+    area.classList.remove('opacity-30', 'pointer-events-none', 'translate-y-2');
+  }
+
+  function renderSemesterList() {
+    const ul = document.getElementById('list-semester');
+    if (!selectedCourseId) {
+      ul.innerHTML = '<i class="fa-solid fa-arrow-left mb-2 opacity-40"></i> Select parent course';
+      ul.className = "flex-1 overflow-y-auto p-6 space-y-3 text-[10px] font-black text-slate-600 text-center italic flex flex-col items-center justify-center uppercase tracking-widest";
+      return;
+    }
+    ul.className = "flex-1 overflow-y-auto p-6 space-y-3";
+    ul.innerHTML = '';
+    const items = allFilters.filter(x => x.category === 'semester' && x.parent_id === selectedCourseId).sort((a, b) => a.value.localeCompare(b.value));
+    items.forEach(item => {
+      const li = document.createElement('li');
+      const active = selectedSemesterId === item.id;
+      li.className = `group flex justify-between items-center px-5 py-4 rounded-2xl cursor-pointer transition-all border-2 ${active ? 'bg-violet-600 border-violet-600 text-white shadow-xl shadow-violet-900/40 scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-violet-500/50 hover:bg-slate-900 hover:text-white'}`;
+      li.onclick = (e) => { if (!e.target.closest('button')) selectSemester(item.id); };
+      li.innerHTML = `
+        <span class="text-sm font-bold tracking-tight">${item.value}</span>
+        <button type="button" onclick="deleteFilter(${item.id})" class="w-8 h-8 flex items-center justify-center rounded-xl bg-transparent hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"><i class="fa-solid fa-trash-alt text-[10px]"></i></button>
+      `;
+      ul.appendChild(li);
+    });
+  }
+
+  function selectSemester(id) {
+    selectedSemesterId = id;
+    renderManageLists();
+    const area = document.getElementById('sub-input-area');
+    area.classList.remove('opacity-30', 'pointer-events-none', 'translate-y-2');
+  }
+
+  function renderSubjectList() {
+    const ul = document.getElementById('list-subject');
+    if (!selectedSemesterId) {
+      ul.innerHTML = '<i class="fa-solid fa-arrow-left mb-2 opacity-40"></i> Select semester';
+      ul.className = "flex-1 overflow-y-auto p-6 space-y-3 text-[10px] font-black text-slate-600 text-center italic flex flex-col items-center justify-center uppercase tracking-widest";
+      return;
+    }
+    ul.className = "flex-1 overflow-y-auto p-6 space-y-3";
+    ul.innerHTML = '';
+    const items = allFilters.filter(x => x.category === 'subject' && x.parent_id === selectedSemesterId).sort((a, b) => a.value.localeCompare(b.value));
+    items.forEach(item => {
+      const li = document.createElement('li');
+      li.className = 'group flex justify-between items-center px-5 py-4 bg-slate-950 border-2 border-slate-800 hover:border-emerald-500/50 rounded-2xl transition-all hover:bg-slate-900';
+      li.innerHTML = `
+        <span class="text-sm font-bold text-slate-400 tracking-tight group-hover:text-emerald-400">${item.value}</span>
+        <button type="button" onclick="deleteFilter(${item.id})" class="w-8 h-8 flex items-center justify-center rounded-xl text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"><i class="fa-solid fa-trash-alt text-[10px]"></i></button>
+      `;
+      ul.appendChild(li);
+    });
+  }
+
+  async function addFilter(category) {
+    const input = document.getElementById(`new-${category}`);
+    const val = input.value.trim();
+    if (!val) return;
+    let pid = (category === 'semester') ? selectedCourseId : (category === 'subject' ? selectedSemesterId : null);
+    try {
+      const res = await fetch('/api/admin/filter-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: category, value: val, parent_id: pid })
+      });
+      if (res.ok) { input.value = ''; await loadFilterOptions(); }
+    } catch (e) { }
+  }
+
+  async function deleteFilter(id) {
+    if (!confirm('Permanently decommission this logic path?')) return;
+    try {
+      const res = await fetch(`/api/admin/filter-options/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        if (selectedCourseId === id) { selectedCourseId = null; selectedSemesterId = null; }
+        if (selectedSemesterId === id) { selectedSemesterId = null; }
+        await loadFilterOptions();
+      }
+    } catch (e) { }
+  }
+
+  const mfBtn = document.getElementById('manage-filters-btn');
+  if (mfBtn) mfBtn.addEventListener('click', () => {
+    document.getElementById('filter-modal').classList.remove('hidden');
+    loadFilterOptions();
+  });
+  function closeFilterModal() { document.getElementById('filter-modal').classList.add('hidden'); }
+</script>
+<style>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 10px;
+  }
+</style>
+{% endblock %}
