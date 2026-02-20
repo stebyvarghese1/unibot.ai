@@ -15,7 +15,7 @@
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97-Hugging%20Face-FFD21E?style=for-the-badge)](https://huggingface.co/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database-3EC189?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 
-[**Explore Documentation**](https://github.com/stebyvarghese1/unibot.ai) • [**View Live Demo**](https://github.com/stebyvarghese1/unibot.ai) • [**Request Feature**](https://github.com/stebyvarghese1/unibot.ai/issues)
+
 
 </div>
 
