@@ -1,152 +1,344 @@
 <div align="center">
 
-<img src="https://github.com/user-attachments/assets/c1212640-997a-47e3-ac88-2ead407be98e" width="160" alt="Unibot Logo" />
-
-# 🎓 Unibot.AI
-### **The Intelligent Academic Intelligence Layer**
-*Bridging the gap between Complex Administration and Student Success with Precise RAG Technology.*
-
----
-
-[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/stebyvarghese1/unibot.ai)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Flask](https://img.shields.io/badge/Flask-2.0+-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
-[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97-Hugging%20Face-FFD21E?style=for-the-badge)](https://huggingface.co/)
-[![Supabase](https://img.shields.io/badge/Supabase-Database-3EC189?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
-
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=24,30,20&height=240&section=header&text=%F0%9F%8E%93%20Unibot.AI&fontSize=80&fontColor=ffffff&fontAlignY=42&desc=The%20Intelligent%20Academic%20Layer%20%E2%80%94%20RAG-powered%2C%20hallucination-free.&descAlignY=63&descSize=16&descColor=94a3b8&animation=fadeIn" width="100%"/>
 
 </div>
 
----
-
-## � The Premium RAG Experience
-
-**Unibot.AI** isn't just a chatbot; it's a dedicated **Academic Intelligence Layer**. Developed for universities that demand absolute precision, Unibot leverages **Retrieval-Augmented Generation (RAG)** to serve answers that are 100% grounded in your institution's official documents.
-
-### 🎯 Why It Stands Out
-| 🚫 Zero Hallucinations | 🔒 Privacy First | ⚡ Lightning Fast |
-| :--- | :--- | :--- |
-| Responses are strictly bound to uploaded context. No "internet guessing". | Vector embeddings are ephemeral (In-Memory). Data minimization is enforced. | FAISS + Postgres optimization ensures sub-second retrieval times. |
-
----
-
-## ✨ Intelligence Features
-
-### 👨‍🎓 For Students: The Ultimate Study Companion
-- **Adaptive Academic Querying**: Instant answers about course content, exam dates, and grading criteria.
-- **Multimodal Vision Support**: Upload a photo of your timetable or handwritten notes; our **VLM (Salesforce BLIP)** will interpret it for you.
-- **Premium Dark Aesthetics**: A sleek, glassmorphic UI built for the modern student.
-- **Persistent Knowledge Base**: Seamlessly continue past conversations with integrated session history.
-
-### 🛡️ For Administrators: Absolute Control
-- **Unified Document Ingestion**: Native support for **PDF, DOCX, and PPTX** with advanced semantic chunking.
-- **Dynamic Web Scraping**: Automatically sync your chatbot with university website updates.
-- **In-Memory Vector Management**: Trigger a real-time re-index of the entire library with a single click.
-- **Admin Command Center**: A dedicated dashboard for monitoring, document management, and system health.
-
----
-
-## 📸 Interface Preview
+<br>
 
 <div align="center">
-  <table>
-    <tr>
-      <td width="50%" align="center"><b>Student Interface (Dark Mode)</b></td>
-      <td width="50%" align="center"><b>User Profile</b></td>
-    </tr>
-    <tr>
-      <td><img src="https://github.com/user-attachments/assets/0e5e7c8e-5e8c-4174-afce-5df3b5223793" alt="Chat UI" /></td>
-      <td><img src="https://github.com/user-attachments/assets/19cd26a4-9c0d-491e-b577-8eed0cc819b8" alt="Session UI" /></td>
-    </tr>
-  </table>
-  <p align="center"><b>Administrative Control Center</b></p>
-  <img src="https://github.com/user-attachments/assets/672b98f1-bb55-4406-9191-166141092e80" width="100%" alt="Admin Dashboard" />
+
+   RAG  ·  Zero Hallucinations  ·  FAISS  ·  VLM  ·  Privacy-First
+
 </div>
+
+<br>
+<div align="center">
+
+
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Flask](https://img.shields.io/badge/Flask-2.0+-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
+[![Hugging Face](https://img.shields.io/badge/🤗_Hugging_Face-FFD21E?style=for-the-badge)](https://huggingface.co)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
+[![FAISS](https://img.shields.io/badge/FAISS-Vector_Store-0064ff?style=for-the-badge&logo=meta&logoColor=white)](https://faiss.ai)
+[![License](https://img.shields.io/badge/License-MIT-fbbf24?style=for-the-badge)](LICENSE)
+
+<br>
+
+[![Stars](https://img.shields.io/github/stars/stebyvarghese1/unibot.ai?style=flat-square&color=fbbf24&label=⭐%20Stars)](https://github.com/stebyvarghese1/unibot.ai/stargazers)
+&nbsp;
+[![Forks](https://img.shields.io/github/forks/stebyvarghese1/unibot.ai?style=flat-square&color=38bdf8&label=Forks)](https://github.com/stebyvarghese1/unibot.ai/forks)
+&nbsp;
+[![Built by](https://img.shields.io/badge/by-Steby%20Varghese-a78bfa?style=flat-square)](https://github.com/stebyvarghese1)
+
+</div>
+
+<br>
+<br>
 
 ---
 
-## 🛠️ System Architecture Flow
+<div align="center">
 
-```text
-[ User Interface ] <---> [ Flask Backend ] <---> [ Hugging Face API ]
-       ^                        |                       |
-       |                        v                       v
-[ Desktop/Mobile ]      [ SQLAlchemy ORM ]      [ AI Model Inference ]
-                                |                       |
-                                v                       v
-                        [ Supabase DB ] <--- [ FAISS Vector Store ]
+## &nbsp;&nbsp;&nbsp;` 01 `&nbsp;&nbsp; THE PRODUCT
+
+</div>
+
+<br>
+
+<div align="center">
+
+<table>
+<tr>
+<td align="center" width="50%">
+<img src="https://github.com/user-attachments/assets/0e5e7c8e-5e8c-4174-afce-5df3b5223793" width="100%"/>
+<br><br>
+<b>💬 STUDENT INTERFACE</b>
+<br>
+<sub>Sleek glassmorphic dark-mode chat UI for instant academic answers.</sub>
+</td>
+<td align="center" width="50%">
+<img src="https://github.com/user-attachments/assets/19cd26a4-9c0d-491e-b577-8eed0cc819b8" width="100%"/>
+<br><br>
+<b>👤 USER PROFILE</b>
+<br>
+<sub>Persistent session history — pick up right where you left off.</sub>
+</td>
+</tr>
+</table>
+
+<br>
+
+<img src="https://github.com/user-attachments/assets/672b98f1-bb55-4406-9191-166141092e80" width="96%"/>
+<br><br>
+<b>⚙️ ADMIN COMMAND CENTER</b>
+<br>
+<sub>Full document management, real-time re-indexing, and system health monitoring.</sub>
+
+</div>
+
+<br>
+<br>
+
+---
+
+<div align="center">
+
+## &nbsp;&nbsp;&nbsp;` 02 `&nbsp;&nbsp; THE IDEA
+
+</div>
+
+<br>
+
+> ### *"Not a chatbot. An Academic Intelligence Layer — where every answer is grounded in your institution's own documents."*
+
+<br>
+
+**Unibot.AI** uses **Retrieval-Augmented Generation (RAG)** to serve answers that are 100% bound to your university's uploaded content. No internet guessing. No hallucinations. Just precise, document-grounded intelligence.
+
+<br>
+
+<div align="center">
+
+```
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │   🚫  ZERO HALLUCINATIONS   Responses bound to your documents   │
+  │   🔒  PRIVACY FIRST         Vectors stored in-memory (RAM)      │
+  │   ⚡  LIGHTNING FAST         FAISS + Postgres sub-second fetch   │
+  │                                                                 │
+  └─────────────────────────────────────────────────────────────────┘
 ```
 
-### ⚙️ How Data Flows
-*   **Step 1: Ingestion** ➔ Documents are parsed and converted into semantic vectors via `sentence-transformers`.
-*   **Step 2: ephemeral Storage** ➔ Vectors are loaded into an **In-Memory FAISS index** for sub-millisecond retrieval.
-*   **Step 3: Querying** ➔ User questions are embedded and matched against the FAISS index to find the most relevant context.
-*   **Step 4: Synthesis** ➔ The Flask API sends the context to a hosted **Mistral/Zephyr LLM** to generate a grounded response.
-*   **Step 5: Visuals** ➔ Images are described using **VLM (BLIP)** before being passed to the chat logic.
+</div>
+
+<br>
+<br>
 
 ---
-
-## 📐 Architecture: How it Works
-
-1. **Semantic Chunking**: Documents aren't just split; they are semantically broken down to ensure context is never lost.
-2. **Ephemeral Indexing**: On startup, Unibot converts your library into high-dimensional vectors stored purely in **RAM (FAISS)**.
-3. **Similarity Retrieval**: When a student asks a query, Unibot finds the top-$k$ most relevant "knowledge blocks".
-4. **Contextual Synthesis**: The LLM synthesizes an answer *only* from those blocks, ensuring 100% accuracy.
-
----
-
-## 🚀 Rapid Deployment
-
-### 📋 Prerequisites
-- **Python 3.10+**
-- **Supabase Account** (Postgres & Storage)
-- **Hugging Face API Token**
-
-### 🛠️ Setup Instructions
-
-1. **Clone & Initialize**
-   ```bash
-   git clone https://github.com/stebyvarghese1/unibot.ai.git && cd unibot.ai
-   ```
-
-2. **Environment Setup**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate # Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-
-3. **Configure Intelligence**
-   Create a `.env` file in the root:
-   ```env
-   SUPABASE_URL=your_supabase_url
-   SUPABASE_KEY=your_supabase_anon_key
-   DATABASE_URL=your_postgresql_connection_string
-   HUGGINGFACE_API_TOKEN=your_token_here
-   HF_LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
-   ```
-
-4. **Launch Application**
-   ```bash
-   python run.py
-   ```
-
----
-
-## 🗺️ Roadmap
-- [ ] **Multilingual Support**: Expanding to support regional university languages.
-- [ ] **Voice Interaction**: Ask Unibot questions using natural speech.
-- [ ] **Department Isolation**: Create specific sub-bots for different university faculties.
-- [ ] **Analytics Dashboard**: Deep insights for admins on common student queries.
-
----
-
-## 📄 License & Credits
-Distributed under the **MIT License**. 
 
 <div align="center">
-  <b>Built for the future of education by Steby Varghese.</b>
-  <br />
-  <sub>If this project helps you, please consider giving it a ⭐ on GitHub!</sub>
+
+## &nbsp;&nbsp;&nbsp;` 03 `&nbsp;&nbsp; FEATURES
+
+</div>
+
+<br>
+
+**👨‍🎓 For Students**
+
+<div align="center">
+
+| &nbsp; | Feature | Description |
+|--------|---------|-------------|
+| 🎯 | **Adaptive Querying** | Instant answers on courses, exams, grades, and schedules |
+| 🖼️ | **Multimodal Vision** | Upload a photo of notes or a timetable — BLIP VLM reads it |
+| 🎨 | **Premium Dark UI** | Glassmorphic interface built for the modern student |
+| 💾 | **Session History** | Persistent conversations — your context is never lost |
+
+</div>
+
+<br>
+
+**🛡️ For Administrators**
+
+<div align="center">
+
+| &nbsp; | Feature | Description |
+|--------|---------|-------------|
+| 📄 | **Document Ingestion** | Native support for PDF, DOCX, and PPTX with semantic chunking |
+| 🌐 | **Web Scraping** | Auto-sync chatbot knowledge with live university website updates |
+| 🔄 | **Live Re-indexing** | Rebuild the entire vector library in one click |
+| 📊 | **Admin Dashboard** | Monitor docs, system health, and knowledge base in real time |
+
+</div>
+
+<br>
+<br>
+
+---
+
+<div align="center">
+
+## &nbsp;&nbsp;&nbsp;` 04 `&nbsp;&nbsp; HOW IT WORKS
+
+</div>
+
+<br>
+
+<div align="center">
+
+```
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                        DATA FLOW                                │
+  ├─────────────────────────────────────────────────────────────────┤
+  │                                                                 │
+  │  STEP 1  INGESTION                                              │
+  │          Documents → sentence-transformers → semantic vectors   │
+  │                                                                 │
+  │  STEP 2  INDEXING                                               │
+  │          Vectors loaded into in-memory FAISS (pure RAM)         │
+  │                                                                 │
+  │  STEP 3  QUERYING                                               │
+  │          User question → embedded → top-k FAISS matches         │
+  │                                                                 │
+  │  STEP 4  SYNTHESIS                                              │
+  │          Flask → Mistral/Zephyr LLM → grounded response         │
+  │                                                                 │
+  │  STEP 5  VISUALS                                                │
+  │          Images → BLIP VLM → description → chat logic           │
+  │                                                                 │
+  └─────────────────────────────────────────────────────────────────┘
+```
+
+</div>
+
+<br>
+
+<div align="center">
+
+```
+  ┌──────────────────┐        ┌───────────────────┐       ┌───────────────────┐
+  │  User Interface  │◀──────▶│   Flask Backend    │──────▶│  Hugging Face API │
+  │  Desktop/Mobile  │        │   SQLAlchemy ORM   │       │  LLM Inference    │
+  └──────────────────┘        └────────┬──────────┘       └───────────────────┘
+                                       │
+                         ┌─────────────┴──────────┐
+                         │                        │
+                         ▼                        ▼
+               ┌─────────────────┐     ┌──────────────────┐
+               │  Supabase DB    │     │  FAISS Vector     │
+               │  PostgreSQL     │     │  Store (In-Memory)│
+               └─────────────────┘     └──────────────────┘
+```
+
+</div>
+
+<br>
+<br>
+
+---
+
+<div align="center">
+
+## &nbsp;&nbsp;&nbsp;` 05 `&nbsp;&nbsp; TECH STACK
+
+</div>
+
+<br>
+
+<div align="center">
+
+| Layer | Technology |
+|-------|-----------|
+| 🎨 **Frontend** | HTML5 · CSS3 · Glassmorphic UI · Dark Mode |
+| ⚙️ **Backend** | Python 3.10+ · Flask · SQLAlchemy |
+| 🧠 **AI / NLP** | sentence-transformers · Mistral/Zephyr LLM · BLIP VLM |
+| 🗄️ **Database** | Supabase (PostgreSQL) |
+| 🔍 **Vector Search** | FAISS (in-memory, sub-millisecond retrieval) |
+| 📄 **Doc Parsing** | PDF · DOCX · PPTX — semantic chunking |
+
+</div>
+
+<br>
+<br>
+
+---
+
+<div align="center">
+
+## &nbsp;&nbsp;&nbsp;` 06 `&nbsp;&nbsp; GETTING STARTED
+
+</div>
+
+<br>
+
+**Prerequisites** — Python `3.10+` · Supabase account · Hugging Face API token
+
+<br>
+
+**Step 1 — Clone**
+```bash
+git clone https://github.com/stebyvarghese1/unibot.ai.git
+cd unibot.ai
+```
+
+**Step 2 — Environment**
+```bash
+python -m venv venv
+source venv/bin/activate      # Linux / macOS
+venv\Scripts\activate         # Windows
+
+pip install -r requirements.txt
+```
+
+**Step 3 — Configure** → create `.env` in project root
+```env
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_anon_key
+DATABASE_URL=your_postgresql_connection_string
+HUGGINGFACE_API_TOKEN=your_token_here
+HF_LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
+```
+
+**Step 4 — Launch**
+```bash
+python run.py
+```
+
+<div align="center">
+
+> 🟢 &nbsp;**Unibot is live — your academic intelligence layer is ready.**
+
+</div>
+
+<br>
+<br>
+
+---
+
+<div align="center">
+
+## &nbsp;&nbsp;&nbsp;` 07 `&nbsp;&nbsp; ROADMAP
+
+</div>
+
+<br>
+
+<div align="center">
+
+```
+  🔲  Multilingual support — regional university languages
+  🔲  Voice interaction — ask Unibot by speaking naturally
+  🔲  Department isolation — sub-bots per faculty or department
+  🔲  Analytics dashboard — deep insights on student query patterns
+```
+
+</div>
+
+<br>
+<br>
+
+---
+
+<br>
+
+<div align="center">
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=24,30,20&height=130&section=footer&animation=fadeIn" width="100%"/>
+
+### Built for the future of education by [Steby Varghese](https://github.com/stebyvarghese1)
+
+[![GitHub](https://img.shields.io/badge/GitHub-stebyvarghese1-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/stebyvarghese1)
+&nbsp;
+[![Portfolio](https://img.shields.io/badge/Portfolio-Visit-a78bfa?style=flat-square&logo=firefox&logoColor=white)](https://portfolio-v3ia.onrender.com/)
+&nbsp;
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://linkedin.com/in/steby-varghese)
+
+<br>
+
+**⭐ Star this repo if Unibot impressed you — it keeps the mission going!**
+
+Licensed under [MIT](LICENSE)
+
 </div>
