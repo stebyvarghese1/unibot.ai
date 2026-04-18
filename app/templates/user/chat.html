@@ -139,6 +139,7 @@
         html,
         body {
             overflow-x: hidden;
+            height: 100%;
         }
 
         .hide-h-scrollbar {
@@ -178,20 +179,48 @@
 
         /* Mobile Adjustments */
         @media (max-width: 640px) {
+            body {
+                overflow-y: auto !important;
+                height: auto !important;
+                display: block !important;
+            }
             .sidebar-transition {
                 width: 100% !important;
                 max-width: 280px;
+                height: 100vh !important;
+                position: fixed !important;
             }
             #chat-history {
                 padding-left: 1rem !important;
                 padding-right: 1rem !important;
                 padding-top: 1.5rem !important;
+                overflow-y: visible !important;
+                height: auto !important;
+                flex-grow: 0 !important;
+                padding-bottom: 2rem !important;
+            }
+            #chat-container {
+                height: auto !important;
+                min-height: calc(100vh - 64px);
+                display: block !important;
+                overflow: visible !important;
             }
             .message-bubble-user {
                 max-width: 90% !important;
             }
             .message-bubble-bot {
                 max-width: 95% !important;
+            }
+            .sticky.bottom-0 {
+                position: relative !important;
+                margin-top: auto;
+                bottom: auto !important;
+            }
+            /* Ensure the overall layout doesn't trap scroll */
+            .flex.flex-grow.overflow-hidden {
+                display: block !important;
+                overflow: visible !important;
+                height: auto !important;
             }
         }
 
@@ -1009,6 +1038,14 @@
             });
         }
         loadFilters();
+        
+        function smartScrollToBottom(behavior = 'auto') {
+            if (window.innerWidth <= 640) {
+                window.scrollTo({ top: document.documentElement.scrollHeight, behavior: behavior });
+            } else {
+                chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: behavior });
+            }
+        }
 
         // --- Chat UI Logic ---
         function typeMessage(element, text, speed = 10, onComplete) {
@@ -1027,11 +1064,11 @@
                     }
                     p += jump;
                     element.innerHTML = fullHtml.slice(0, p);
-                    chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: 'auto' });
+                    smartScrollToBottom('auto');
                     setTimeout(type, speed);
                 } else {
                     element.innerHTML = fullHtml;
-                    chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: 'smooth' });
+                    smartScrollToBottom('smooth');
                     if (onComplete) onComplete();
                 }
             }
@@ -1053,7 +1090,7 @@
                         <div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>
                     </div>`;
                 chatHistory.appendChild(row);
-                chatHistory.scrollTop = chatHistory.scrollHeight;
+                smartScrollToBottom('auto');
                 return;
             }
 
@@ -1188,7 +1225,7 @@
                     
                     // Insert BEFORE actions row
                     bubble.insertBefore(srcContainer, actionsRow);
-                    chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: 'smooth' });
+                    smartScrollToBottom('smooth');
                 };
 
                 if (skipTyping) {
@@ -1204,7 +1241,7 @@
                 }
             }
             chatHistory.appendChild(row);
-            setTimeout(() => chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: 'smooth' }), 50);
+            setTimeout(() => smartScrollToBottom('smooth'), 50);
         }
 
         // --- Submit ---
