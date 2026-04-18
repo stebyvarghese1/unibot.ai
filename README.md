@@ -18,9 +18,9 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-2.0+-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
-[![Hugging Face](https://img.shields.io/badge/🤗_Hugging_Face-FFD21E?style=for-the-badge)](https://huggingface.co)
+[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97-Hugging%20Face-FFD21E?style=for-the-badge)](https://huggingface.co)
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
-[![FAISS](https://img.shields.io/badge/FAISS-Vector_Store-0064ff?style=for-the-badge&logo=meta&logoColor=white)](https://faiss.ai)
+[![pgvector](https://img.shields.io/badge/PGVector-Persistent-0064ff?style=for-the-badge&logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
 [![License](https://img.shields.io/badge/License-MIT-fbbf24?style=for-the-badge)](LICENSE)
 
 <br>
@@ -104,8 +104,8 @@
   ┌─────────────────────────────────────────────────────────────────┐
   │                                                                 │
   │   🚫  ZERO HALLUCINATIONS   Responses bound to your documents   │
-  │   🔒  PRIVACY FIRST         Vectors stored in-memory (RAM)      │
-  │   ⚡  LIGHTNING FAST         FAISS + Postgres sub-second fetch   │
+  │   🔒  PERSISTENT BRAIN      Supabase pgvector Knowledge Base    │
+  │   ⚡  PERFORMANCE TUNED      Gzip + Singleton + Eager Loading    │
   │                                                                 │
   └─────────────────────────────────────────────────────────────────┘
 ```
@@ -146,10 +146,10 @@
 
 | &nbsp; | Feature | Description |
 |--------|---------|-------------|
-| 📄 | **Document Ingestion** | Native support for PDF, DOCX, and PPTX with semantic chunking |
-| 🌐 | **Web Scraping** | Auto-sync chatbot knowledge with live university website updates |
-| 🔄 | **Live Re-indexing** | Rebuild the entire vector library in one click |
-| 📊 | **Admin Dashboard** | Monitor docs, system health, and knowledge base in real time |
+| 📄 | **Async Ingestion** | Background PDF/Docx processing — no UI blocking |
+| 🌐 | **Smart Scraping** | Non-blocking web crawling with persistent auto-sync |
+| 🔄 | **Live Re-indexing** | Rebuild your persistent vector library with one click |
+| 📊 | **Gzip Compression** | Optimized transfers for large knowledge bases |
 
 </div>
 
@@ -174,16 +174,16 @@
   ├─────────────────────────────────────────────────────────────────┤
   │                                                                 │
   │  STEP 1  INGESTION                                              │
-  │          Documents → sentence-transformers → semantic vectors   │
+  │          Async threading → sentence-transformers → vectors      │
   │                                                                 │
   │  STEP 2  INDEXING                                               │
-  │          Vectors loaded into in-memory FAISS (pure RAM)         │
+  │          Persistent storage in Supabase pgvector (PostgreSQL)   │
   │                                                                 │
-  │  STEP 3  QUERYING                                               │
-  │          User question → embedded → top-k FAISS matches         │
+  │  STEP 3  RETRIEVAL                                              │
+  │          Eager relationship loading → sub-second fetching       │
   │                                                                 │
   │  STEP 4  SYNTHESIS                                              │
-  │          Flask → Mistral/Zephyr LLM → grounded response         │
+  │          Flask + Gzip Compression → Mistral LLM → UI            │
   │                                                                 │
   │  STEP 5  VISUALS                                                │
   │          Images → BLIP VLM → description → chat logic           │
@@ -207,8 +207,8 @@
                          │                        │
                          ▼                        ▼
                ┌─────────────────┐     ┌──────────────────┐
-               │  Supabase DB    │     │  FAISS Vector     │
-               │  PostgreSQL     │     │  Store (In-Memory)│
+               │  Supabase DB    │◀───▶│  Supabase Vector   │
+               │  (PostgreSQL)   │     │  (PGVector)        │
                └─────────────────┘     └──────────────────┘
 ```
 
@@ -234,8 +234,9 @@
 | 🎨 **Frontend** | HTML5 · CSS3 · Glassmorphic UI · Dark Mode |
 | ⚙️ **Backend** | Python 3.10+ · Flask · SQLAlchemy |
 | 🧠 **AI / NLP** | sentence-transformers · Mistral/Zephyr LLM · BLIP VLM |
-| 🗄️ **Database** | Supabase (PostgreSQL) |
-| 🔍 **Vector Search** | FAISS (in-memory, sub-millisecond retrieval) |
+| 🗄️ **Database** | Supabase (PostgreSQL) · SQLAlchemy (Eager Loading) |
+| 🔍 **Vector Search** | Supabase pgvector (Persistent) |
+| ⚡ **Performance** | Flask-Compress (Gzip) · Singleton Service Pattern |
 | 📄 **Doc Parsing** | PDF · DOCX · PPTX — semantic chunking |
 
 </div>
