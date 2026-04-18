@@ -233,7 +233,7 @@
 |-------|-----------|
 | 🎨 **Frontend** | HTML5 · CSS3 · Glassmorphic UI · Dark Mode |
 | ⚙️ **Backend** | Python 3.10+ · Flask · SQLAlchemy |
-| 🧠 **AI / NLP** | sentence-transformers · Mistral/Zephyr LLM · BLIP VLM |
+| 🧠 **AI / NLP** | all-MiniLM-L6-v2 · Google Gemma-2b-it LLM |
 | 🗄️ **Database** | Supabase (PostgreSQL) · SQLAlchemy (Eager Loading) |
 | 🔍 **Vector Search** | Supabase pgvector (Persistent) |
 | ⚡ **Performance** | Flask-Compress (Gzip) · Singleton Service Pattern |
@@ -279,7 +279,8 @@ SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_anon_key
 DATABASE_URL=your_postgresql_connection_string
 HUGGINGFACE_API_TOKEN=your_token_here
-HF_LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
+HF_LLM_MODEL=google/gemma-2b-it
+HF_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 ```
 
 **Step 4 — Launch**
