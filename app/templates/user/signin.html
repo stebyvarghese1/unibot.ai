@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome - University AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .auth-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .panel-container {
+            transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .auth-toggle-active {
+            background: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            color: #4f46e5;
+        }
+
+        /* Animated Background Blobs */
+        .blob {
+            position: fixed;
+            width: clamp(300px, 50vw, 600px);
+            height: clamp(300px, 50vw, 600px);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.4) 0%, rgba(168, 85, 247, 0.4) 100%);
+            filter: blur(80px);
+            border-radius: 50%;
+            z-index: -1;
+            animation: move 25s infinite alternate ease-in-out;
+        }
+
+        @keyframes move {
+            0% { transform: translate(-10%, -10%) scale(1); }
+            100% { transform: translate(10%, 10%) scale(1.1); }
+        }
+
+        .blob-2 {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.3) 0%, rgba(244, 63, 94, 0.3) 100%);
+            animation-delay: -5s;
+            animation-duration: 20s;
+        }
+
+        .input-pill {
+            transition: all 0.2s ease;
+        }
+
+        .input-pill:focus {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+        }
+
+        @media (max-width: 480px) {
+            .auth-card {
+                padding: 1.5rem !important;
+                border-radius: 2rem !important;
+                margin: 0 1rem;
+            }
+            .auth-card h1 {
+                font-size: 1.5rem !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="p-4 relative">
+    <!-- Background Blobs -->
+    <div class="blob left-[-10%] top-[-10%]"></div>
+    <div class="blob blob-2 right-[-10%] bottom-[-10%]"></div>
+
+    <div class="auth-card w-full max-w-md rounded-[2.5rem] overflow-hidden p-6 sm:p-10 relative z-10 border border-white/50">
+        <!-- Logo/Title -->
+        <div class="text-center mb-8">
+            <div
+                class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-2xl shadow-lg mb-4 transform -rotate-3 hover:rotate-0 transition-all duration-300">
+                <span class="text-2xl sm:text-3xl">🎓</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Unibot.AI</h1>
+            <p class="text-gray-500 text-sm mt-1">Your academic companion</p>
+        </div>
+
+        <!-- Toggle Switcher -->
+        <div class="bg-gray-100/80 backdrop-blur-sm p-1.5 rounded-2xl flex items-center mb-8">
+            <button id="btn-login" onclick="switchPanel('login')"
+                class="flex-1 py-2.5 text-sm font-bold rounded-xl transition-all duration-300 auth-toggle-active">Sign
+                In</button>
+            <button id="btn-register" onclick="switchPanel('register')"
+                class="flex-1 py-2.5 text-sm font-bold rounded-xl transition-all duration-300 text-gray-500 hover:text-gray-700">Sign
+                Up</button>
+        </div>
+
+        <!-- Forms Wrapper -->
+        <div class="relative overflow-hidden min-h-[360px] sm:min-h-[380px]">
+            <div id="panels" class="panel-container flex">
+                <!-- Login Panel -->
+                <div class="w-full shrink-0 px-1">
+                    <form id="login-form" class="space-y-4 sm:space-y-5">
+                        <div class="space-y-1.5">
+                            <label class="block text-xs sm:text-sm font-bold text-gray-700 ml-1">Email Address</label>
+                            <input type="email" id="login-email" placeholder="name@university.edu"
+                                class="input-pill w-full px-5 py-3.5 sm:py-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-300 text-sm sm:text-base"
+                                required>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="block text-xs sm:text-sm font-bold text-gray-700 ml-1">Password</label>
+                            <input type="password" id="login-password" placeholder="••••••••"
+                                class="input-pill w-full px-5 py-3.5 sm:py-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-300 text-sm sm:text-base"
+                                required>
+                        </div>
+                        <div id="login-error" class="text-rose-500 text-xs font-bold px-1 hidden text-center"></div>
+                        <button type="submit"
+                            class="w-full py-3.5 sm:py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 hover:shadow-indigo-200 active:scale-95 transition-all duration-300 mt-2">
+                            Sign In to Account
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Register Panel -->
+                <div class="w-full shrink-0 px-1">
+                    <form id="signup-form" class="space-y-4 sm:space-y-5">
+                        <div class="space-y-1.5">
+                            <label class="block text-xs sm:text-sm font-bold text-gray-700 ml-1">Email Address</label>
+                            <input type="email" id="signup-email" placeholder="your@email.com"
+                                class="input-pill w-full px-5 py-3.5 sm:py-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-300 text-sm sm:text-base"
+                                required>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="space-y-1.5">
+                                <label class="block text-xs sm:text-sm font-bold text-gray-700 ml-1">Password</label>
+                                <input type="password" id="signup-password" placeholder="Min. 8"
+                                    class="input-pill w-full px-5 py-3.5 sm:py-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-300 text-sm sm:text-base"
+                                    required>
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="block text-xs sm:text-sm font-bold text-gray-700 ml-1">Confirm</label>
+                                <input type="password" id="signup-confirm" placeholder="Match"
+                                    class="input-pill w-full px-5 py-3.5 sm:py-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-300 text-sm sm:text-base"
+                                    required>
+                            </div>
+                        </div>
+                        <div id="signup-error" class="text-rose-500 text-xs font-bold px-1 hidden text-center"></div>
+                        <button type="submit"
+                            class="w-full py-3.5 sm:py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 hover:shadow-indigo-200 active:scale-95 transition-all duration-300 mt-2">
+                            Create Account
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <p class="text-center mt-6 sm:mt-8 text-gray-400 text-[10px] sm:text-xs px-2 sm:px-4 leading-relaxed">
+            By continuing, you agree to our <a href="#" class="text-indigo-500 hover:underline">Terms of Service</a> and <a href="#" class="text-indigo-500 hover:underline">Privacy Policy</a>.
+        </p>
+    </div>
+
+    <script>
+        const panels = document.getElementById('panels');
+        const btnLogin = document.getElementById('btn-login');
+        const btnRegister = document.getElementById('btn-register');
+
+        function switchPanel(mode) {
+            if (mode === 'login') {
+                panels.style.transform = 'translateX(0%)';
+                btnLogin.classList.add('auth-toggle-active');
+                btnLogin.classList.remove('text-gray-500');
+                btnRegister.classList.remove('auth-toggle-active');
+                btnRegister.classList.add('text-gray-500');
+                document.title = "Sign In - University AI";
+                // Update URL without reload to help navigation feel seamless
+                if (window.location.pathname !== '/login') {
+                    window.history.pushState({}, '', '/login');
+                }
+            } else {
+                panels.style.transform = 'translateX(-100%)';
+                btnRegister.classList.add('auth-toggle-active');
+                btnRegister.classList.remove('text-gray-500');
+                btnLogin.classList.remove('auth-toggle-active');
+                btnLogin.classList.add('text-gray-500');
+                document.title = "Sign Up - University AI";
+                if (window.location.pathname !== '/signup') {
+                    window.history.pushState({}, '', '/signup');
+                }
+            }
+        }
+
+        // Detect initial state based on URL
+        window.addEventListener('load', () => {
+            if (window.location.pathname === '/signup') {
+                switchPanel('register');
+            }
+            // Trap history to "disable" back/forward buttons
+            history.pushState(null, null, location.href);
+            window.onpopstate = function () {
+                history.go(1);
+            };
+        });
+
+        // Sign In Logic
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const errorMsg = document.getElementById('login-error');
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    window.location.href = data.role === 'admin' ? '/admin' : '/chat';
+                } else {
+                    errorMsg.innerText = data.error || 'Login failed';
+                    errorMsg.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorMsg.innerText = 'Network connection error';
+                errorMsg.classList.remove('hidden');
+            }
+        });
+
+        // Sign Up Logic
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('signup-email').value.trim();
+            const password = document.getElementById('signup-password').value;
+            const confirm = document.getElementById('signup-confirm').value;
+            const errorMsg = document.getElementById('signup-error');
+
+            if (password !== confirm) {
+                errorMsg.innerText = 'Passwords do not match';
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    window.location.href = '/chat';
+                } else {
+                    errorMsg.innerText = data.error || 'Signup failed';
+                    errorMsg.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorMsg.innerText = 'Network connection error';
+                errorMsg.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+
+</html>
