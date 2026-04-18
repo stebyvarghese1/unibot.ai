@@ -94,6 +94,7 @@ def login():
     email = data.get('email')
     password = data.get('password')
     
+    user = User.query.filter_by(email=email).first()
     if user and check_password_hash(user.password_hash, password):
         session.permanent = True
         session['user_id'] = user.id
