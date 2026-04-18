@@ -245,3 +245,6 @@ def create_app(config_class=Config):
             logging.error(f"❌ Failed to schedule WebSourceRefresher: {e}")
 
     return app
+
+# Expose app for Gunicorn/Render compatibility with 'app:app' entry point
+app = create_app()
