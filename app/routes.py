@@ -94,9 +94,8 @@ def login():
     email = data.get('email')
     password = data.get('password')
     
-    user = User.query.filter_by(email=email).first()
-    
     if user and check_password_hash(user.password_hash, password):
+        session.permanent = True
         session['user_id'] = user.id
         session['role'] = user.role
         # Load prefs into session
@@ -125,6 +124,7 @@ def signup():
     user = User(email=email, password_hash=pwd_hash, role='student')
     db.session.add(user)
     db.session.commit()
+    session.permanent = True
     session['user_id'] = user.id
     session['role'] = user.role
     return jsonify({'message': 'Signed up', 'role': user.role})
