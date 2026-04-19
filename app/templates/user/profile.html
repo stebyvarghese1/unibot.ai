@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Unibot.AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            background-image: radial-gradient(#e2e8f0 0.5px, transparent 0.5px);
+            background-size: 24px 24px;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .input-focus {
+            transition: all 0.2s ease;
+        }
+
+        .input-focus:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+            outline: none;
+        }
+
+        select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 1rem center;
+            background-repeat: no-repeat;
+            background-size: 1.25em 1.25em;
+            padding-right: 2.5rem !important;
+        }
+
+        .status-animate {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Dark Mode Global Overrides */
+        .dark-mode {
+            background-color: #0f172a !important;
+            color: #f1f5f9 !important;
+            background-image: radial-gradient(#1e293b 0.5px, transparent 0.5px) !important;
+        }
+
+        .dark-mode .glass-card,
+        .dark-mode header,
+        .dark-mode #app-header,
+        .dark-mode .bg-white,
+        .dark-mode [class*="bg-white/"],
+        .dark-mode [class*="bg-indigo-50/"],
+        .dark-mode [class*="bg-blue-50/"] {
+            background: rgba(30, 41, 59, 0.7) !important;
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            color: #f1f5f9 !important;
+            box-shadow: none !important;
+        }
+
+        .dark-mode .text-slate-900,
+        .dark-mode .text-slate-800,
+        .dark-mode .text-slate-700,
+        .dark-mode .text-slate-600 {
+            color: #f1f5f9 !important;
+        }
+
+        .dark-mode .text-slate-500,
+        .dark-mode .text-slate-400 {
+            color: #94a3b8 !important;
+        }
+
+        .dark-mode .bg-slate-50,
+        .dark-mode .bg-slate-100,
+        .dark-mode .bg-blue-50,
+        .dark-mode .bg-indigo-100 {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+        }
+
+        .dark-mode .border-slate-200,
+        .dark-mode .border-gray-200,
+        .dark-mode .border-indigo-100,
+        .dark-mode .border-rose-100 {
+            border-color: #334155 !important;
+        }
+
+        .dark-mode input,
+        .dark-mode select {
+            background-color: #1e293b !important;
+            color: #f1f5f9 !important;
+            border-color: #334155 !important;
+        }
+
+        .dark-mode input:focus,
+        .dark-mode select:focus {
+            border-color: #818cf8 !important;
+            box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1) !important;
+        }
+
+        .dark-mode .bg-indigo-50 {
+            background-color: #312e81 !important;
+            color: #e0e7ff !important;
+        }
+
+        .dark-mode .bg-indigo-600 {
+            background-color: #4338ca !important;
+        }
+
+        .dark-mode .text-indigo-600,
+        .dark-mode .text-blue-600,
+        .dark-mode .text-indigo-700 {
+            color: #818cf8 !important;
+        }
+
+        .dark-mode .hover\:bg-indigo-50:hover,
+        .dark-mode .hover\:bg-gray-50:hover,
+        .dark-mode .hover\:bg-indigo-100:hover,
+        .dark-mode .hover\:bg-rose-100:hover {
+            background-color: #334155 !important;
+        }
+
+        .dark-mode .bg-rose-50 {
+            background-color: #451a1a !important;
+            color: #fecaca !important;
+            border-color: #7f1d1d !important;
+        }
+
+        .dark-mode .text-rose-600 {
+            color: #fb7185 !important;
+        }
+
+        /* Reset shadows for better look in dark mode */
+        .dark-mode .shadow-lg,
+        .dark-mode .shadow-md,
+        .dark-mode .shadow-sm,
+        .dark-mode .shadow-xl,
+        .dark-mode .shadow-2xl,
+        .dark-mode [class*="shadow-indigo-"],
+        .dark-mode [class*="shadow-slate-"] {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        .dark-mode .shadow-none {
+            box-shadow: none !important;
+        }
+
+        /* Modal Animation */
+        #tour-modal.flex #tour-modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-slate-800 dark-mode">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 backdrop-blur-md bg-white/70">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                </div>
+                <h1 class="text-xl font-extrabold tracking-tight text-slate-900">Account Settings</h1>
+            </div>
+            <a href="/chat"
+                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-transparent hover:border-indigo-100">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Chat
+            </a>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+            <!-- Sidebar: User Info -->
+            <div class="lg:col-span-4 space-y-6">
+                <div class="glass-card rounded-3xl p-6 shadow-sm overflow-hidden relative">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 opacity-50">
+                    </div>
+                    <div class="relative">
+                        <div
+                            class="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center text-white text-2xl font-bold mb-4 shadow-xl shadow-indigo-100">
+                            <span id="p-avatar">U</span>
+                        </div>
+                        <h2 class="text-xl font-bold text-slate-900 mb-1" id="p-email-display">User Name</h2>
+                        <span
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 uppercase tracking-wider"
+                            id="p-role">Member</span>
+
+                        <div class="mt-6 space-y-4">
+                            <div class="flex items-center gap-3 text-sm">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+                                        viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Email
+                                        Address</p>
+                                    <p class="font-medium text-slate-700" id="p-email">--</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 text-sm">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+                                        viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Joined On
+                                    </p>
+                                    <p class="font-medium text-slate-700" id="p-created">--</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="logout-btn"
+                            class="w-full mt-8 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-2xl transition-all border border-rose-100">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content: Settings -->
+            <div class="lg:col-span-8 space-y-8">
+
+                <!-- Chat Preferences Card -->
+                <div class="glass-card rounded-3xl p-8 shadow-sm">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Chat Preferences</h2>
+                            <p class="text-sm text-slate-500">Set your default academic context for smarter answers.</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="block text-sm font-bold text-slate-700 ml-1">Preferred Course</label>
+                            <select id="pref-course"
+                                class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium input-focus cursor-pointer appearance-none">
+                                <option value="">Loading courses...</option>
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-bold text-slate-700 ml-1">Preferred Semester</label>
+                            <select id="pref-sem"
+                                class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium input-focus cursor-pointer appearance-none">
+                                <option value="">Select a course first</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 flex flex-col sm:flex-row items-center gap-4">
+                        <button id="save-prefs"
+                            class="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-[0.98]">
+                            Save Preferences
+                        </button>
+                        <div id="prefs-status" class="status-animate text-sm font-medium h-5"></div>
+                    </div>
+                </div>
+
+                <!-- Security Card -->
+                <div class="glass-card rounded-3xl p-8 shadow-sm">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Password & Security</h2>
+                            <p class="text-sm text-slate-500">Update your account password frequently.</p>
+                        </div>
+                    </div>
+
+                    <form id="pwd-form" class="space-y-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div class="space-y-2">
+                                <label class="block text-sm font-bold text-slate-700 ml-1">Current Password</label>
+                                <input type="password" id="current" placeholder="••••••••"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium input-focus"
+                                    required>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-sm font-bold text-slate-700 ml-1">New Password</label>
+                                <input type="password" id="newpwd" placeholder="Min. 8 characters"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium input-focus"
+                                    required>
+                            </div>
+                        </div>
+                        <div class="flex flex-col sm:flex-row items-center gap-4 pt-2">
+                            <button type="submit"
+                                class="w-full sm:w-auto px-8 py-3.5 bg-slate-800 text-white font-bold rounded-2xl hover:bg-slate-900 shadow-lg shadow-slate-100 transition-all active:scale-[0.98]">
+                                Update Password
+                            </button>
+                            <div id="pwd-status" class="status-animate text-sm font-medium h-5"></div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Danger Zone -->
+                <div class="glass-card rounded-3xl p-8 border-rose-100/50 shadow-sm">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Danger Zone</h2>
+                            <p class="text-sm text-slate-500">Irreversible actions for your account.</p>
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-rose-50/50 rounded-2xl border border-rose-100">
+                        <h4 class="text-sm font-bold text-rose-900 mb-1">Delete Account</h4>
+                        <p class="text-xs text-rose-700/70 mb-4 font-medium">Once you delete your account, all your chat history, preferences, and personal data will be permanently removed. This action cannot be undone.</p>
+                        <button id="delete-account-btn"
+                            class="px-6 py-2.5 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-all active:scale-[0.98] text-sm shadow-lg shadow-rose-100">
+                            Delete My Account
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Tour Completion Modal -->
+    <div id="tour-modal" class="fixed inset-0 z-[1000] hidden items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md"></div>
+        <div class="glass-card w-full max-w-sm rounded-[2rem] p-8 relative z-10 text-center shadow-2xl scale-95 opacity-0 transition-all duration-300" id="tour-modal-content">
+            <div class="w-20 h-20 bg-gradient-to-tr from-emerald-400 to-teal-500 text-white rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-emerald-100 text-3xl">
+                ✨
+            </div>
+            <h3 class="text-2xl font-black text-slate-900 mb-2 tracking-tight">Great! You're All Set</h3>
+            <p class="text-slate-500 mb-8 leading-relaxed font-medium">Unibot.AI is now perfectly synced with your course and semester.</p>
+            
+            <div class="flex flex-col gap-3">
+                <button onclick="window.location.href='/chat'" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-[0.98]">
+                    Start Chatting
+                </button>
+                <button onclick="closeTourModal()" class="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors text-sm">
+                    Stay on Profile
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Account Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 z-[1000] hidden items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md"></div>
+        <div class="glass-card w-full max-w-sm rounded-[2rem] p-8 relative z-10 shadow-2xl scale-95 opacity-0 transition-all duration-300" id="delete-modal-content">
+            <div class="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-black text-slate-900 mb-2">Confirm Deletion</h3>
+            <p class="text-sm text-slate-500 mb-6 leading-relaxed font-medium">This action is permanent. Please enter your password to confirm account deletion.</p>
+            
+            <div class="space-y-4">
+                <div class="space-y-1">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Your Password</label>
+                    <input type="password" id="delete-password" placeholder="••••••••"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium input-focus">
+                </div>
+                <div id="delete-error" class="hidden text-xs font-bold text-rose-500 bg-rose-50 p-3 rounded-lg border border-rose-100 italic"></div>
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button onclick="closeDeleteModal()" class="py-3 text-slate-600 font-bold hover:bg-slate-50 rounded-xl transition-all">
+                        Cancel
+                    </button>
+                    <button id="final-delete-btn" class="py-3 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all active:scale-[0.98]">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allFilters = [];
+        const cSel = document.getElementById('pref-course');
+        const sSel = document.getElementById('pref-sem');
+
+        function getCourses() {
+            return (allFilters.filter(x => x.category === 'course' && x.value) || [])
+                .sort((a, b) => (a.value || '').localeCompare(b.value || ''));
+        }
+
+        function getSemestersForCourse(courseValue) {
+            if (!courseValue) return [];
+            const course = allFilters.find(x => x.category === 'course' && x.value === courseValue);
+            if (!course) return [];
+            return (allFilters.filter(x => x.category === 'semester' && x.parent_id === course.id && x.value) || [])
+                .sort((a, b) => (a.value || '').localeCompare(b.value || ''));
+        }
+
+        function fillSemesterDropdown() {
+            if (!sSel) return;
+            const courseVal = cSel ? cSel.value : '';
+            const semesters = getSemestersForCourse(courseVal);
+
+            if (semesters.length === 0) {
+                sSel.innerHTML = '<option value="">All Semesters</option>';
+            } else {
+                sSel.innerHTML = '<option value="">All Semesters</option>' +
+                    semesters.map(s => `<option value="${s.value}">${s.value}</option>`).join('');
+            }
+        }
+
+        async function init() {
+            try {
+                const r = await fetch('/api/check-auth');
+                const auth = await r.json();
+
+                const profRes = await fetch('/api/profile');
+                const prof = await profRes.json();
+
+                document.getElementById('p-email').innerText = prof.email || '';
+                document.getElementById('p-email-display').innerText = prof.email ? prof.email.split('@')[0] : 'User';
+                document.getElementById('p-avatar').innerText = prof.email ? prof.email[0].toUpperCase() : 'U';
+                document.getElementById('p-role').innerText = prof.role || 'Member';
+                document.getElementById('p-created').innerText = prof.created_at ? new Date(prof.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '--';
+
+                const fRes = await fetch('/api/filters');
+                const filters = await fRes.json();
+                allFilters = filters.all || [];
+
+                const courses = getCourses();
+                if (cSel) {
+                    cSel.innerHTML = '<option value="">All Courses</option>' +
+                        courses.map(c => `<option value="${c.value}">${c.value}</option>`).join('');
+                    cSel.addEventListener('change', fillSemesterDropdown);
+                }
+
+                const pRes = await fetch('/api/prefs');
+                const prefs = await pRes.json();
+
+                if (prefs.course && cSel) cSel.value = prefs.course;
+                fillSemesterDropdown();
+                if (prefs.semester && sSel) sSel.value = prefs.semester;
+            } catch (e) {
+                console.error('Initialization failed', e);
+            }
+        }
+
+        init();
+
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login';
+        });
+
+        // Form handlers with improved UI feedback
+        function showStatus(elId, msg, isError = false) {
+            const el = document.getElementById(elId);
+            el.innerText = msg;
+            el.className = `status-animate text-sm font-medium ${isError ? 'text-rose-500' : 'text-emerald-500'}`;
+            setTimeout(() => { el.innerText = ''; }, 4000);
+        }
+
+        document.getElementById('pwd-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const current = document.getElementById('current').value;
+            const newpwd = document.getElementById('newpwd').value;
+
+            try {
+                const res = await fetch('/api/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_password: current, new_password: newpwd })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showStatus('pwd-status', '✓ Password updated successfully');
+                    document.getElementById('current').value = '';
+                    document.getElementById('newpwd').value = '';
+                } else {
+                    showStatus('pwd-status', data.error || 'Failed to update', true);
+                }
+            } catch (e) {
+                showStatus('pwd-status', 'Network error', true);
+            }
+        });
+
+        document.getElementById('save-prefs').addEventListener('click', async () => {
+            const course = cSel.value || '';
+            const semester = sSel.value || '';
+            try {
+                const res = await fetch('/api/prefs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ course, semester })
+                });
+                if (res.ok) {
+                    showStatus('prefs-status', '✓ Preferences saved');
+                } else {
+                    showStatus('prefs-status', 'Failed to save', true);
+                }
+            } catch (e) {
+                showStatus('prefs-status', 'Network error', true);
+            }
+        });
+
+        document.getElementById('delete-account-btn').addEventListener('click', () => {
+            showDeleteModal();
+        });
+
+        function showDeleteModal() {
+            const modal = document.getElementById('delete-modal');
+            const error = document.getElementById('delete-error');
+            const pwd = document.getElementById('delete-password');
+            error.classList.add('hidden');
+            pwd.value = '';
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => {
+                document.getElementById('delete-modal-content').style.opacity = '1';
+                document.getElementById('delete-modal-content').style.transform = 'scale(1)';
+            }, 10);
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById('delete-modal');
+            document.getElementById('delete-modal-content').style.opacity = '0';
+            document.getElementById('delete-modal-content').style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        document.getElementById('final-delete-btn').addEventListener('click', async () => {
+            const password = document.getElementById('delete-password').value;
+            const errorMsg = document.getElementById('delete-error');
+            const btn = document.getElementById('final-delete-btn');
+
+            if (!password) {
+                errorMsg.innerText = "Please enter your password";
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Deleting...";
+
+            try {
+                const res = await fetch('/api/profile', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    window.location.href = '/login';
+                } else {
+                    errorMsg.innerText = data.error || "Failed to delete account";
+                    errorMsg.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.innerText = "Delete";
+                }
+            } catch (e) {
+                errorMsg.innerText = "Network error occurred";
+                errorMsg.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerText = "Delete";
+            }
+        });
+
+        // Theme sync (Default to dark)
+        if ((localStorage.getItem('theme') || 'dark') === 'dark') {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+
+        // --- Profile Tour ---
+        function startProfileTour() {
+            const driver = window.driver.js.driver;
+            const driverObj = driver({
+                showProgress: true,
+                animate: true,
+                steps: [
+                    { 
+                        element: '#pref-course', 
+                        popover: { 
+                            title: 'Choose Your Course 🎓', 
+                            description: 'Select the main degree or course you are currently enrolled in.', 
+                            side: "bottom", 
+                            align: 'start' 
+                        } 
+                    },
+                    { 
+                        element: '#pref-sem', 
+                        popover: { 
+                            title: 'Current Semester 🗓️', 
+                            description: 'And pick your current semester to filter relevant syllabus materials.', 
+                            side: "bottom", 
+                            align: 'start' 
+                        } 
+                    },
+                    { 
+                        element: '#save-prefs', 
+                        popover: { 
+                            title: 'Save & Finish ✅', 
+                            description: 'Click save to remember these. Unibot.AI will now automatically use this context in your chats!', 
+                            side: "top", 
+                            align: 'start' 
+                        } 
+                    }
+                ],
+                onDestroyed: async () => {
+                    // Mark tour as complete on server
+                    await fetch('/api/tour/complete', { method: 'POST' });
+                    // Show custom panel
+                    showTourModal();
+                }
+            });
+            driverObj.drive();
+        }
+
+        function showTourModal() {
+            const modal = document.getElementById('tour-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => {
+                document.getElementById('tour-modal-content').style.opacity = '1';
+                document.getElementById('tour-modal-content').style.transform = 'scale(1)';
+            }, 10);
+        }
+
+        function closeTourModal() {
+            const modal = document.getElementById('tour-modal');
+            document.getElementById('tour-modal-content').style.opacity = '0';
+            document.getElementById('tour-modal-content').style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        // Check if we should continue tour
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('tour') === '1') {
+                setTimeout(startProfileTour, 1000);
+            }
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
+</body>
+
+</html>
