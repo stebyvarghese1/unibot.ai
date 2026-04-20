@@ -10,6 +10,9 @@ class Config:
         _DB_URL = _DB_URL + ('&sslmode=require' if '?' in _DB_URL else '?sslmode=require')
     SQLALCHEMY_DATABASE_URI = _DB_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True
+    }
     
     # Supabase
     SUPABASE_URL = os.getenv('SUPABASE_URL')
@@ -40,19 +43,5 @@ class Config:
     
     # Retrieval tuning
     VECTOR_MAX_DISTANCE = float(os.getenv('VECTOR_MAX_DISTANCE', '3.0'))  # Permissive threshold for better recall
-
-    # Rate Limiting & Stability
-    RATELIMIT_DEFAULT = os.getenv('RATELIMIT_DEFAULT', '200 per day; 50 per hour')
-    REDIS_URL = os.getenv('REDIS_URL', os.getenv('REDIS_EXTERNAL_URL'))
-    SENTRY_DSN = os.getenv('SENTRY_DSN')
-    
-    # Connection Pooling
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': int(os.getenv('DB_POOL_SIZE', '10')),
-        'max_overflow': int(os.getenv('DB_MAX_OVERFLOW', '20')),
-        'pool_timeout': int(os.getenv('DB_POOL_TIMEOUT', '30')),
-        'pool_recycle': int(os.getenv('DB_POOL_RECYCLE', '1800')),
-        'pool_pre_ping': True
-    }
 
 # No local upload directory needed - using Supabase storage only
