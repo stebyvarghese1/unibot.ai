@@ -17,3 +17,7 @@ supabase
 gunicorn
 Pillow
 flask-compress
+flask-limiter
+redis
+sentry-sdk[flask]
+prometheus-flask-exporter
