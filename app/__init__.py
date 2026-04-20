@@ -27,7 +27,9 @@ def create_app(config_class=Config):
     # Initialize Prometheus Metrics
     metrics.init_app(app)
     
-    # Initialize Rate Limiter
+    # Initialize Rate Limiter with Redis if available
+    if app.config.get('REDIS_URL'):
+        app.config['RATELIMIT_STORAGE_URI'] = app.config['REDIS_URL']
     limiter.init_app(app)
     
     # Initialize Sentry if DSN is provided
