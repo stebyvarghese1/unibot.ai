@@ -14,7 +14,7 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 from prometheus_flask_exporter import PrometheusMetrics
 
 db = SQLAlchemy()
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
 metrics = PrometheusMetrics.for_app_factory()
 
 def create_app(config_class=Config):
