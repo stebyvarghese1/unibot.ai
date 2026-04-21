@@ -132,7 +132,7 @@ def logout_redirect():
 # --- API Auth ---
 
 @bp.route('/api/login', methods=['POST'])
-@limiter.limit("10 per minute", error_message="Too many login attempts. Please try again in a minute.")
+@limiter.limit("5 per minute", error_message="Too many login attempts. Please try again in a minute.")
 def login():
     data = request.json
     email = (data.get('email') or '').strip().lower()
@@ -1850,7 +1850,7 @@ def rename_chat_session(session_id):
     return jsonify({'error': 'Session not found'}), 404
 
 @bp.route('/api/query', methods=['POST'])
-@limiter.limit("15 per minute", error_message="You are asking questions too fast. Please slow down.")
+@limiter.limit("20 per minute", error_message="You are asking questions too fast. Please slow down.")
 @login_required
 def query():
     try:
