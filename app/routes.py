@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, render_template, session, current_app, redirect
-from app import db
+from app import db, limiter
 from app.models import User, Document, DocumentChunk, ChatMessage, ChatSession, FilterOption, AppSetting
 from app.services.document_processor import DocumentProcessor
 from app.services.vector_store import VectorStore
@@ -132,6 +132,7 @@ def logout_redirect():
 # --- API Auth ---
 
 @bp.route('/api/login', methods=['POST'])
+@limiter.limit("10 per minute", error_message="Too many login attempts. Please try again in a minute.")
 def login():
     data = request.json
     email = (data.get('email') or '').strip().lower()
@@ -162,6 +163,7 @@ def logout():
     session.clear()
     return jsonify({'message': 'Logged out'})
 @bp.route('/api/signup', methods=['POST'])
+@limiter.limit("5 per hour", error_message="Too many accounts created. Please try again later.")
 def signup():
     data = request.json
     email = (data.get('email') or '').strip().lower()
@@ -319,6 +321,7 @@ def list_filters():
 # --- API Admin ---
 
 @bp.route('/api/admin/upload', methods=['POST'])
+@limiter.limit("20 per hour")
 @admin_required
 def upload_document():
     if 'file' not in request.files:
@@ -1847,6 +1850,7 @@ def rename_chat_session(session_id):
     return jsonify({'error': 'Session not found'}), 404
 
 @bp.route('/api/query', methods=['POST'])
+@limiter.limit("15 per minute", error_message="You are asking questions too fast. Please slow down.")
 @login_required
 def query():
     try:
