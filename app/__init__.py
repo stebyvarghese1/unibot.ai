@@ -10,9 +10,12 @@ import logging
 
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask import session
+from flask import session, make_response
+from flask_wtf.csrf import CSRFProtect, generate_csrf
+from flask_talisman import Talisman
 
 db = SQLAlchemy()
+csrf = CSRFProtect()
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["200 per day", "50 per hour"],
@@ -33,6 +36,25 @@ def create_app(config_class=Config):
     Compress(app) # Gzip compression for all JSON responses
     db.init_app(app)
     
+    # Security Middleware
+    csrf.init_app(app)
+    
+    # Configure Talisman for HSTS and Force HTTPS
+    # content_security_policy=None to avoid breaking dynamic AI content for now
+    Talisman(app, 
+             force_https=app.config.get('FORCE_HTTPS', False), 
+             strict_transport_security=True,
+             session_cookie_secure=app.config.get('SESSION_COOKIE_SECURE', False),
+             content_security_policy=None)
+    
+    # Synchronize CSRF token to a cookie for frontend Fetch/XHR requests
+    @app.after_request
+    def set_csrf_cookie(response):
+        response.set_cookie('csrf_token', generate_csrf(), 
+                          samesite=app.config.get('SESSION_COOKIE_SAMESITE', 'Lax'),
+                          secure=app.config.get('SESSION_COOKIE_SECURE', False))
+        return response
+
     # Configure Limiter with App Config
     limiter_defaults = app.config.get('RATELIMIT_DEFAULT', "1000 per day; 200 per hour")
     limiter.init_app(app)
