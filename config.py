@@ -49,4 +49,15 @@ class Config:
     RATELIMIT_STORAGE_URL = os.getenv('RATELIMIT_STORAGE_URL', _DB_URL)  # Reuse DB for persistent rate limiting
     RATELIMIT_STRATEGY = 'fixed-window' # or 'sliding-window'
 
+    # Security Enhancements
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'True').lower() == 'true'
+    SESSION_COOKIE_HTTPONLY = True
+    PERMANENT_SESSION_LIFETIME = 60 * 60 * 24 * 7 # 7 days
+    
+    # HSTS & HTTPS (Talisman)
+    FORCE_HTTPS = os.getenv('FORCE_HTTPS', 'True').lower() == 'true'
+    HSTS_MAX_AGE = 31536000 # 1 year
+    HSTS_INCLUDE_SUBDOMAINS = True
+
 # No local upload directory needed - using Supabase storage only
