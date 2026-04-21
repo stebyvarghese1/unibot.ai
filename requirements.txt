@@ -18,3 +18,5 @@ gunicorn
 Pillow
 flask-compress
 flask-limiter
+flask-wtf
+flask-talisman
