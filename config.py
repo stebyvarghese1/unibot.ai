@@ -44,4 +44,9 @@ class Config:
     # Retrieval tuning
     VECTOR_MAX_DISTANCE = float(os.getenv('VECTOR_MAX_DISTANCE', '3.0'))  # Permissive threshold for better recall
 
+    # Rate Limiting
+    RATELIMIT_DEFAULT = os.getenv('RATELIMIT_DEFAULT', '200 per day; 50 per hour')
+    RATELIMIT_STORAGE_URL = os.getenv('RATELIMIT_STORAGE_URL', _DB_URL)  # Reuse DB for persistent rate limiting
+    RATELIMIT_STRATEGY = 'fixed-window' # or 'sliding-window'
+
 # No local upload directory needed - using Supabase storage only
