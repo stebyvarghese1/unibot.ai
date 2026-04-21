@@ -85,9 +85,16 @@ class SupabaseService:
             logging.error(f"Supabase Storage Download Error: {e}")
             raise RuntimeError(f"Storage download failed: {e}")
 
-    def get_public_url(self, path: str) -> str:
-        # Requires bucket to be public
-        return self.client.storage.from_(self.bucket).get_public_url(path)
+    def get_signed_url(self, path: str, expires_in: int = 3600) -> str:
+        """Generate a short-lived signed URL for private document access (defaults to 1 hour)."""
+        try:
+            res = self.client.storage.from_(self.bucket).create_signed_url(path, expires_in)
+            if isinstance(res, dict) and 'signedURL' in res:
+                return res['signedURL']
+            return str(res)
+        except Exception as e:
+            # Fallback to public URL if signed URL generation fails (e.g. bucket doesn't support it)
+            return self.client.storage.from_(self.bucket).get_public_url(path)
 
     def delete_file(self, path: str):
         try:
