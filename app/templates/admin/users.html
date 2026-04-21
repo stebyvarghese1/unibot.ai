@@ -1,0 +1,186 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Users - Admin Dashboard{% endblock %}
+{% block content %}
+<div class="bg-slate-900 rounded-xl shadow-2xl border border-slate-800 overflow-hidden w-full min-w-0">
+  <div
+    class="px-4 sm:px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex flex-wrap justify-between items-center gap-2">
+    <h2 class="text-base sm:text-lg font-semibold text-white truncate min-w-0">System Users</h2>
+    <button type="button" onclick="loadUsers()" class="btn-icon shrink-0 text-slate-300 hover:text-white"
+      title="Refresh"><i class="fa-solid fa-sync-alt"></i> Refresh</button>
+  </div>
+  <div class="overflow-x-auto hide-h-scrollbar min-w-0">
+    <table class="min-w-full divide-y divide-slate-800">
+      <thead class="bg-slate-800/50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest w-20">ID</th>
+          <th class="px-6 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Email</th>
+          <th class="px-6 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest w-32">Role</th>
+          <th class="px-6 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Created At</th>
+          <th class="px-6 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest w-24">Status</th>
+          <th class="px-6 py-3 text-right text-xs font-black text-slate-500 uppercase tracking-widest w-32">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="user-list" class="bg-slate-900 divide-y divide-slate-800"></tbody>
+    </table>
+    <div id="empty-state" class="hidden py-12 text-center">
+      <i class="fa-solid fa-users text-4xl text-slate-700 mb-3"></i>
+      <p class="text-slate-500">No users found.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  async function loadUsers() {
+    const tbody = document.getElementById('user-list');
+    const emptyState = document.getElementById('empty-state');
+    tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-slate-500 font-medium tracking-wide">Loading system topology...</td></tr>';
+    try {
+      const res = await fetch('/api/admin/users');
+      let data = await res.json();
+      data = data.sort((a, b) => {
+        if (a.role === 'admin' && b.role !== 'admin') return -1;
+        if (a.role !== 'admin' && b.role === 'admin') return 1;
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
+      tbody.innerHTML = '';
+      if (data.length === 0) {
+        emptyState.classList.remove('hidden');
+      } else {
+        emptyState.classList.add('hidden');
+        data.forEach(user => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-800/40 transition-colors group';
+
+          let roleClass = 'bg-slate-800 text-slate-400 border border-slate-700';
+          if (user.role === 'admin') {
+            roleClass = 'bg-purple-500/10 text-purple-400 border border-purple-500/20';
+          }
+
+          const avatarClass = user.role === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400';
+          const adminBadge = user.role === 'admin' ? '<span class="ml-2 px-2 py-0.5 text-[10px] font-black uppercase tracking-tight rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 inline-flex items-center"><i class="fa-solid fa-crown mr-1"></i> Admin</span>' : '';
+          
+          const authBadge = user.auth_method === 'Google' 
+            ? '<span class="ml-2 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white text-slate-900 border border-slate-200 inline-flex items-center shadow-sm"><img src="https://www.google.com/favicon.ico" class="w-2.5 h-2.5 mr-1"> Google</span>' 
+            : '<span class="ml-2 px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-800 text-slate-500 border border-slate-700 inline-flex items-center"><i class="fa-solid fa-envelope mr-1"></i> Email</span>';
+
+
+          const statusBadge = user.is_active 
+            ? '<span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Active</span>'
+            : '<span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter rounded-full bg-slate-800 text-slate-500 border border-slate-700">Inactive</span>';
+
+          let deactivateBtn = '';
+          let deleteBtn = '';
+
+          if (user.role !== 'admin') {
+              deactivateBtn = `
+                <button onclick="toggleUserActive(${user.id}, ${user.is_active})" 
+                  class="p-2 text-xs font-bold ${user.is_active ? 'text-amber-500 hover:bg-amber-500/10' : 'text-emerald-500 hover:bg-emerald-500/10'} rounded-lg transition-all"
+                  title="${user.is_active ? 'Deactivate' : 'Activate'}">
+                  <i class="fa-solid ${user.is_active ? 'fa-user-slash' : 'fa-user-check'}"></i>
+                </button>
+              `;
+
+              deleteBtn = `
+                <button onclick="deleteUser(${user.id})" 
+                  class="p-2 text-xs font-bold text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all ml-1"
+                  title="Permanently Delete">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              `;
+          }
+
+          tr.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">#${user.id}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+              <div class="flex items-center">
+                <div class="h-8 w-8 rounded-full ${avatarClass} flex items-center justify-center font-bold mr-3 text-xs border border-white/5">
+                  ${user.email.substring(0, 2).toUpperCase()}
+                </div>
+                <div class="flex flex-col">
+                    <div class="flex items-center gap-1">
+                        <span class="${!user.is_active ? 'opacity-40 line-through' : ''}">${user.email}</span>
+                        ${authBadge}
+                    </div>
+                    ${adminBadge}
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="px-2 py-1 inline-flex text-[10px] font-black uppercase tracking-widest rounded-full ${roleClass}">
+                ${user.role}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">
+              ${new Date(user.created_at).toLocaleDateString()}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              ${statusBadge}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right">
+              <div class="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                ${deactivateBtn}
+                ${deleteBtn}
+              </div>
+            </td>
+          `;
+          if (user.role === 'admin') {
+            tr.classList.add('bg-purple-500/[0.02]');
+          }
+          tbody.appendChild(tr);
+        });
+      }
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-red-400 font-bold">CRITICAL: FAILED TO FETCH USERS</td></tr>';
+    }
+  }
+
+  async function toggleUserActive(userId, currentStatus) {
+    if (!confirm(`Are you sure you want to ${currentStatus ? 'deactivate' : 'activate'} this user?`)) return;
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/toggle-active`, { 
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrf_token') }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        loadUsers();
+      } else {
+        alert(data.error || 'Operation failed');
+      }
+    } catch (e) { alert('Network error'); }
+  }
+
+  async function deleteUser(userId) {
+    if (!confirm('CRITICAL ACTION: Permanently delete this user and ALL their associated data (chats, files, vector embeddings)? This CANNOT be undone.')) return;
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { 
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': getCookie('csrf_token') }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        loadUsers();
+      } else {
+        alert(data.error || 'Deletion failed');
+      }
+    } catch (e) { alert('Network error'); }
+  }
+  loadUsers();
+</script>
+{% endblock %}
