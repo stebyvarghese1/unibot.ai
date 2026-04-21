@@ -641,7 +641,7 @@ def force_rechunk_all_background(app):
                     
                     # Prepare metadata
                     for chunk_obj in chunks_to_add:
-                        url_meta = doc.file_path if str(doc.file_path).startswith('http') else supa.get_public_url(doc.file_path)
+                        url_meta = doc.file_path if str(doc.file_path).startswith('http') else supa.get_signed_url(doc.file_path)
                         all_chunk_texts.append(chunk_obj.chunk_text)
                         all_chunk_metas.append({
                             'text': chunk_obj.chunk_text,
@@ -729,7 +729,7 @@ def rebuild_index():
             'doc_id': c.document_id,
             'doc_type': doc_map[c.document_id].doc_type if c.document_id in doc_map else 'syllabus',
             'filename': doc_map[c.document_id].filename if c.document_id in doc_map else None,
-            'url': supa.get_public_url(doc_map[c.document_id].file_path) if c.document_id in doc_map else None
+            'url': supa.get_signed_url(doc_map[c.document_id].file_path) if c.document_id in doc_map else None
         } for c in chunks]
         
         vector_store.add_texts(texts, metadata)
@@ -2184,7 +2184,7 @@ def query():
                     if not url and isinstance(key, int) and key in doc_map:
                         try:
                             supa = SupabaseService()
-                            url = supa.get_public_url(doc_map[key].file_path)
+                            url = supa.get_signed_url(doc_map[key].file_path)
                         except Exception:
                             url = None
                     unique[key] = {'doc_id': did, 'filename': fn, 'url': url}
@@ -2330,7 +2330,7 @@ def process_document(doc_id):
                 'document_id': doc.id, # Double mapping for compatibility
                 'doc_type': doc.doc_type or 'syllabus',
                 'filename': doc.filename, 
-                'url': supa.get_public_url(doc.file_path)
+                'url': supa.get_signed_url(doc.file_path)
             } for c in chunks]
             vector_store.add_texts(chunk_texts, metadata)
             
