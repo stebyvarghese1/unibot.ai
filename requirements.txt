@@ -17,3 +17,4 @@ supabase
 gunicorn
 Pillow
 flask-compress
+flask-limiter
