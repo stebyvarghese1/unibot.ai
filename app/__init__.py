@@ -10,6 +10,7 @@ import logging
 
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask import session
 
 db = SQLAlchemy()
 limiter = Limiter(
@@ -18,6 +19,11 @@ limiter = Limiter(
     storage_uri="memory://", # Default to memory for now to avoid complexity with DB drivers
     strategy="fixed-window"
 )
+
+# Admin Exemption: Admins are never rate limited
+@limiter.request_filter
+def admin_whitelist():
+    return session.get('role') == 'admin'
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -28,7 +34,12 @@ def create_app(config_class=Config):
     db.init_app(app)
     
     # Configure Limiter with App Config
+    limiter_defaults = app.config.get('RATELIMIT_DEFAULT', "1000 per day; 200 per hour")
     limiter.init_app(app)
+    
+    # We set default limits dynamically if specified in config
+    if limiter_defaults:
+        app.config.setdefault("RATELIMIT_DEFAULTS", limiter_defaults)
     if app.config.get('RATELIMIT_STORAGE_URL'):
         # For production use with gunicorn, memory storage isn't shared. 
         # For simplicity in this environment, memory is fine, but we'll try to use DB if it's there.
