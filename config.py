@@ -30,7 +30,7 @@ class Config:
     # Uploads (using Supabase storage only, no local storage)
     UPLOAD_FOLDER = '/tmp/uploads'  # Temporary folder that gets cleaned up
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
-    ALLOWED_EXTENSIONS = {'pdf', 'docx', 'pptx'}
+    ALLOWED_EXTENSIONS = {'pdf', 'docx', 'pptx', 'jpg', 'jpeg', 'png', 'webp'}
 
     # Admin
     ADMIN_EMAIL = os.getenv('ADMIN_EMAIL')
