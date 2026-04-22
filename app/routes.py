@@ -2350,7 +2350,7 @@ def query():
                 'created you', 'developer', 'about yourself', 'about you', 'your purpose', 
                 'what can you do', 'how you work', 'about this software', 'about the bot',
                 'unibot', 'who created this', 'what are your skills', 'who made this',
-                'tell me about unibot', 'what is unibot'
+                'tell me about unibot', 'what is unibot', 'who am i', 'who i am', 'my name'
             ]
             identity_intent = any(k in question.lower() for k in id_keywords)
             
@@ -2485,23 +2485,24 @@ def query():
 
             # Construct special instruction if embedding failed or context empty
             custom_instruct = None
-            name_context = f"The user you are helping is named {pref_name}. " if pref_name else ""
+            name_part = f"The user's name is {pref_name}. " if pref_name else "The user has not set a preferred name. "
+            course_part = f"They are enrolled in {course}. " if course else ""
             
             if not q_vec:
                 custom_instruct = (
-                    f"{name_context}SYSTEM NOTICE: The embedding service is momentarily busy and couldn't retrieve documents. "
+                    f"{name_part}{course_part}SYSTEM NOTICE: The embedding service is momentarily busy and couldn't retrieve documents. "
                     "Please answer the user's question using your GENERAL KNOWLEDGE while acting as their university assistant. "
-                    "If you cannot answer without specific documents, politely explain that the intelligent retrieval system is experiencing high load."
+                    "Always prioritize addressing them by name if they ask who they are."
                 )
             elif not final_context_bits:
                 custom_instruct = (
-                    f"{name_context}SYSTEM NOTICE: No specific documents were found for this query. "
+                    f"{name_part}{course_part}SYSTEM NOTICE: No specific documents were found for this query in the {course or 'university'} knowledge base. "
                     "Please answer using your GENERAL KNOWLEDGE as a professional university assistant. "
-                    "If the user is asking about a specific course fact that is not common knowledge, mention that you couldn't find it in their uploaded documents."
+                    "If the user is asking about their own identity or name, use the information provided above."
                 )
 
             context = "\n\n".join([r['text'] for r in final_context_bits])
-            answer = AIService.generate_answer(question, context, history=history, syllabus_context=syllabus_intel, custom_sys_prompt=custom_instruct, user_preferred_name=pref_name)
+            answer = AIService.generate_answer(question, context, history=history, syllabus_context=syllabus_intel, custom_sys_prompt=custom_instruct, user_preferred_name=pref_name, course_name=course)
             
             # Deduplicate sources
             unique = {}
