@@ -144,7 +144,7 @@ class AIService:
         # 1. System Prompt
         sys_prompt = custom_sys_prompt or (
             "You are a sophisticated AI-powered Intelligence Assistant. Your name is Unibot."
-            + (f" You are currently helping {user_preferred_name}." if user_preferred_name else "")
+            + (f" The user you are helping is named {user_preferred_name}. Always address them by this name if they ask who they are or what their name is." if user_preferred_name else "")
             + "\n\nYour personality and identity are dynamically defined by the 'Context' provided below.\n\n"
             "CRITICAL RULES:\n"
             "1. IDENTITY AWARENESS: Use the provided 'Software Identity' or 'About this Software' information to inform your persona ONLY if the user is asking about your identity, purpose, or creators. For general or academic questions, act as a neutral and professional assistant.\n"
@@ -382,7 +382,7 @@ class AIService:
                 completion = groq_client.chat.completions.create(
                     model="llama-3.1-8b-instant",
                     messages=[
-                        {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + (f"The user's name is {user_preferred_name}." if user_preferred_name else "")},
+                        {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + (f"IMPORTANT: The user's name is {user_preferred_name}. You MUST start your response by greeting them by their name (e.g. 'Hello {user_preferred_name}!')" if user_preferred_name else "")},
                         {"role": "user", "content": text}
                     ],
                     max_tokens=64,
@@ -401,7 +401,7 @@ class AIService:
             
             response = hf_client.chat_completion(
                 messages=[
-                    {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + (f"The user's name is {user_preferred_name}." if user_preferred_name else "")},
+                    {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + (f"IMPORTANT: The user's name is {user_preferred_name}. You MUST start your response by greeting them by their name (e.g. 'Hello {user_preferred_name}!')" if user_preferred_name else "")},
                     {"role": "user", "content": text}
                 ],
                 model="mistralai/Mistral-7B-Instruct-v0.2",
@@ -420,17 +420,18 @@ class AIService:
             pass
         
         # Final hardcoded fallback
+        name_part = f" {user_preferred_name}" if user_preferred_name else ""
         fallbacks_dict = {
-            "nice": "Glad you think so!",
-            "okay": "I'm ready whenever you are! Would you like to know anything more about your courses or subjects?",
-            "ok": "Got it! How can I help you further?",
-            "thanks": "You're very welcome!",
-            "thank you": "You're very welcome!",
-            "hi": "Hello! How can I help you today?",
-            "hello": "Hi there! I'm here to help with your studies or any questions about this system."
+            "nice": f"Glad you think so{name_part}!",
+            "okay": f"I'm ready whenever you are{name_part}! Would you like to know anything more about your courses or subjects?",
+            "ok": f"Got it{name_part}! How can I help you further?",
+            "thanks": f"You're very welcome{name_part}!",
+            "thank you": f"You're very welcome{name_part}!",
+            "hi": f"Hello{name_part}! How can I help you today?",
+            "hello": f"Hi{name_part}! I'm here to help with your studies or any questions about this system."
         }
         t = (text or "").lower().strip().strip('!').strip('.')
-        return fallbacks_dict.get(t, "I'm here to help! Do you have any questions about your documents or subjects?")
+        return fallbacks_dict.get(t, f"I'm here to help{name_part}! Do you have any questions about your documents or subjects?")
 
     @staticmethod
     def generate_image_caption(image_bytes: bytes):
