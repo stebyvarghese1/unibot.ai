@@ -1,8 +1,10 @@
 from huggingface_hub import InferenceClient
+from groq import Groq
 from config import Config
 from flask import current_app
 import time
 import logging
+import json
 
 class AIService:
     @staticmethod
@@ -11,70 +13,58 @@ class AIService:
         if not history:
             return question
             
+        # Try Groq first if key exists
         try:
-            token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else None
-        except Exception:
-            token = None
-        client = InferenceClient(token=token or Config.HUGGINGFACE_API_TOKEN, timeout=12)
-        
-        # Build history string
-        history_snippet = history[-6:]
-        history_str = ""
-        for m in history_snippet:
-            role = "Assistant" if m['role'] == 'assistant' else "User"
-            history_str += f"{role}: {m['content'][:250]}...\n" if len(m['content']) > 250 else f"{role}: {m['content']}\n"
-            
-        prompt = (
-            "You are a Search Query Expander. Your task is to rewrite the user's latest message to be a STANDALONE search query.\n"
-            "Use the conversation history to replace pronouns (it, they, that, there) with the specific nouns they refer to.\n"
-            "--- CONVERSATION HISTORY ---\n"
-            f"{history_str}\n"
-            "--- LATEST USER MESSAGE ---\n"
-            f"{question}\n\n"
-            "STANDALONE SEARCH QUERY (Rewritten message):"
-        )
-        
-        # Try fallbacks for rewriting too
-        try:
-            llm_model = current_app.config.get("HF_LLM_MODEL") if current_app else None
-        except Exception:
-            llm_model = None
-        
-        models = []
-        if llm_model: models.append(llm_model)
-        models.extend([
-            "mistralai/Mistral-7B-Instruct-v0.2",
-            "HuggingFaceH4/zephyr-7b-beta",
-            "microsoft/Phi-3-mini-4k-instruct"
-        ])
-        
-        for mdl in models:
-            if not mdl: continue
-            try:
-                # Use chat_completion instead of text_generation for better compatibility with Instruct models
+            groq_key = current_app.config.get("GROQ_API_KEY") if current_app else Config.GROQ_API_KEY
+            if groq_key:
+                groq_client = Groq(api_key=groq_key)
                 rewrite_messages = [
                     {"role": "system", "content": "You are a query refiner. Rewrite the user's latest message to be a STANDALONE search query using the provided history. Return ONLY the rewritten text. DO NOT answer the question."},
                     {"role": "user", "content": f"History:\n{history_str}\n\nLatest Message: {question}\n\nStandalone Query:"}
                 ]
-                
-                response = client.chat_completion(
+                completion = groq_client.chat.completions.create(
+                    model="llama3-8b-8192",
                     messages=rewrite_messages,
-                    model=mdl,
-                    max_tokens=100,
-                    temperature=0.0
+                    temperature=0,
+                    max_tokens=100
                 )
-                
-                if hasattr(response, 'choices'):
-                    result = response.choices[0].message.content
-                else:
-                    result = response.get('choices', [{}])[0].get('message', {}).get('content', '')
-                
+                result = completion.choices[0].message.content
                 result = (result or "").strip().strip('"').strip("'").strip()
                 if result and len(result) > 2:
                     return result
-            except Exception as e:
-                logging.warning(f"Query rewrite failed with {mdl}: {e}")
-                continue
+        except Exception as e:
+            logging.warning(f"Groq query rewrite failed: {e}")
+
+        # Fallback to Hugging Face
+        try:
+            token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
+            client = InferenceClient(token=token, timeout=12)
+            
+            # Use chat_completion instead of text_generation for better compatibility with Instruct models
+            rewrite_messages = [
+                {"role": "system", "content": "You are a query refiner. Rewrite the user's latest message to be a STANDALONE search query using the provided history. Return ONLY the rewritten text. DO NOT answer the question."},
+                {"role": "user", "content": f"History:\n{history_str}\n\nLatest Message: {question}\n\nStandalone Query:"}
+            ]
+            
+            response = client.chat_completion(
+                messages=rewrite_messages,
+                model="mistralai/Mistral-7B-Instruct-v0.2",
+                max_tokens=100,
+                temperature=0.0
+            )
+            
+            if hasattr(response, 'choices'):
+                result = response.choices[0].message.content
+            else:
+                result = response.get('choices', [{}])[0].get('message', {}).get('content', '')
+            
+            result = (result or "").strip().strip('"').strip("'").strip()
+            if result and len(result) > 2:
+                return result
+        except Exception as e:
+            logging.warning(f"Hugging Face query rewrite fallback failed: {e}")
+                
+        return question
                 
         return question
 
@@ -146,12 +136,6 @@ class AIService:
 
     @staticmethod
     def generate_answer(question, context, history=None, syllabus_context=None, custom_sys_prompt=None, user_preferred_name=None):
-        try:
-            token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else None
-        except Exception:
-            token = None
-        client = InferenceClient(token=token or Config.HUGGINGFACE_API_TOKEN, timeout=45)
-        
         # 1. System Prompt
         sys_prompt = custom_sys_prompt or (
             "You are a sophisticated AI-powered Intelligence Assistant. Your name is Unibot."
@@ -175,55 +159,59 @@ class AIService:
                 "mention that the topic is outside the official course scope but provide a brief answer if found in context."
             )
 
-        messages = [
-            {
-                "role": "system", 
-                "content": sys_prompt
-            }
-        ]
-
-        # 2. Add History
-        if history:
-            messages.extend(history)
-            
-        # 3. Add current context & question
+        # Build messages
+        messages = [{"role": "system", "content": sys_prompt}]
+        if history: messages.extend(history)
         messages.append({
             "role": "user", 
             "content": f"Context:\n{context}\n\nUser Question/Instruction: {question}\n\nAdaptive Answer:"
         })
-        
+
+        # 1. Try Groq (Primary)
         try:
-            try:
-                llm_model = current_app.config.get("HF_LLM_MODEL") if current_app else None
-            except Exception:
-                llm_model = None
-            primary = llm_model or Config.HF_LLM_MODEL
-            fallbacks = []
-            if primary:
-                fallbacks.append(primary)
+            groq_key = current_app.config.get("GROQ_API_KEY") if current_app else Config.GROQ_API_KEY
+            if groq_key:
+                groq_client = Groq(api_key=groq_key)
+                model = current_app.config.get("GROQ_LLM_MODEL") if current_app else Config.GROQ_LLM_MODEL
+                
+                # Try Llama 3 70B for high-quality generation if it's not already the default
+                try_models = [model, "llama3-70b-8192", "llama3-8b-8192"]
+                for m in try_models:
+                    if not m: continue
+                    try:
+                        completion = groq_client.chat.completions.create(
+                            model=m,
+                            messages=messages,
+                            temperature=0.2,
+                            max_tokens=2048
+                        )
+                        out = completion.choices[0].message.content
+                        if out and len(out.strip()) > 0:
+                            return out.strip()
+                    except Exception as ge:
+                        logging.warning(f"Groq generation failed with {m}: {ge}")
+        except Exception as e:
+            logging.error(f"Groq setup failed: {e}")
+
+        # 2. Try Hugging Face (Fallback)
+        try:
+            token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
+            hf_client = InferenceClient(token=token, timeout=45)
             
-            robust_models = [
+            hf_fallbacks = [
                 "mistralai/Mistral-7B-Instruct-v0.2",
                 "HuggingFaceH4/zephyr-7b-beta",
-                "microsoft/Phi-3-mini-4k-instruct",
-                "google/gemma-7b-it"
+                "microsoft/Phi-3-mini-4k-instruct"
             ]
-            for m in robust_models:
-                if m not in fallbacks:
-                    fallbacks.append(m)
             
-            for mdl in fallbacks:
-                if not mdl:
-                    continue
+            for mdl in hf_fallbacks:
                 try:
-                    # Try chat completion API (preferred for chat models)
-                    response = client.chat_completion(
+                    response = hf_client.chat_completion(
                         messages=messages,
                         model=mdl,
-                        max_tokens=1200,  # Significantly increased to prevent truncation
+                        max_tokens=1200,
                         temperature=0.2
                     )
-                    # Handle response object or dict
                     if hasattr(response, 'choices'):
                         out = response.choices[0].message.content
                     else:
@@ -231,27 +219,12 @@ class AIService:
                         
                     if out and len(out.strip()) > 0:
                         return out.strip()
-                except Exception as e:
-                    logging.warning(f"Chat completion failed with {mdl}: {e}")
-                    # Fallback to legacy text generation
-                    try:
-                        prompt = f"Context:\n{context}\n\nQuestion: {question}\n\nAnswer:"
-                        out = client.text_generation(
-                            prompt, 
-                            model=mdl, 
-                            max_new_tokens=1200,
-                            temperature=0.2
-                        )
-                        if out and len(out.strip()) > 0:
-                            return out.strip()
-                    except Exception as e2:
-                        logging.warning(f"Legacy generation failed with {mdl}: {e2}")
-                        continue
-                        
-            logging.error("All fallback models failed to generate an answer.")
-            return "The AI service is currently experiencing high load or is temporarily unavailable. Please try your question again in a moment."
+                except Exception:
+                    continue
         except Exception as e:
-            return f"Error generating answer: {e}"
+            logging.error(f"Hugging Face fallback failed: {e}")
+
+        return "The AI service is currently experiencing high load or is temporarily unavailable. Please try again in a moment."
 
     @staticmethod
     def generate_answer_from_website(question, context, source_url="", history=None, user_preferred_name=None):
@@ -396,62 +369,52 @@ class AIService:
 
     @staticmethod
     def generate_smalltalk(text: str, user_preferred_name=None):
+        # Try Groq first
         try:
-            token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else None
-        except Exception:
-            token = None
-        client = InferenceClient(token=token or Config.HUGGINGFACE_API_TOKEN, timeout=8)
-        
-        # Determine the model to use for smalltalk
-        try:
-            model = current_app.config.get("HF_SMALLTALK_MODEL") if current_app else None
-        except Exception:
-            model = None
-            
-        # If we're not using a specific blenderbot model, use a general chat model for better quality
-        primary_model = model or Config.HF_SMALLTALK_MODEL or "HuggingFaceH4/zephyr-7b-beta"
-        fallbacks = [primary_model, "mistralai/Mistral-7B-Instruct-v0.2", "microsoft/Phi-3-mini-4k-instruct"]
-        
-        # A simple, direct chat prompt for smalltalk
-        chat_prompt = [
-            {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + (f"The user's name is {user_preferred_name}." if user_preferred_name else "")},
-            {"role": "user", "content": text}
-        ]
-        
-        for mdl in fallbacks:
-            if not mdl: continue
-            try:
-                # First try chat completion
-                response = client.chat_completion(
-                    messages=chat_prompt,
-                    model=mdl,
+            groq_key = current_app.config.get("GROQ_API_KEY") if current_app else Config.GROQ_API_KEY
+            if groq_key:
+                groq_client = Groq(api_key=groq_key)
+                completion = groq_client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=[
+                        {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + (f"The user's name is {user_preferred_name}." if user_preferred_name else "")},
+                        {"role": "user", "content": text}
+                    ],
                     max_tokens=64,
                     temperature=0.7
                 )
-                
-                if hasattr(response, 'choices'):
-                    out = response.choices[0].message.content
-                else:
-                    out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
-                
+                out = completion.choices[0].message.content
                 if out and len(out.strip()) > 0:
                     return out.strip()
-            except Exception:
-                # Fallback to simple text generation if chat fails
-                try:
-                    out = client.text_generation(
-                        f"User: {text}\nAssistant:",
-                        model=mdl,
-                        max_new_tokens=48,
-                        temperature=0.7,
-                        stop=["\n", "User:"]
-                    )
-                    if out and len(out.strip()) > 0:
-                        return out.strip()
-                except Exception:
-                    continue
+        except Exception as e:
+            logging.warning(f"Groq smalltalk failed: {e}")
+
+        # Fallback to Hugging Face
+        try:
+            token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
+            hf_client = InferenceClient(token=token, timeout=8)
+            
+            response = hf_client.chat_completion(
+                messages=[
+                    {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + (f"The user's name is {user_preferred_name}." if user_preferred_name else "")},
+                    {"role": "user", "content": text}
+                ],
+                model="mistralai/Mistral-7B-Instruct-v0.2",
+                max_tokens=64,
+                temperature=0.7
+            )
+            
+            if hasattr(response, 'choices'):
+                out = response.choices[0].message.content
+            else:
+                out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
+            
+            if out and len(out.strip()) > 0:
+                return out.strip()
+        except Exception:
+            pass
         
-        # Final hardcoded fallback if everything fails
+        # Final hardcoded fallback
         fallbacks_dict = {
             "nice": "Glad you think so!",
             "okay": "I'm ready whenever you are! Would you like to know anything more about your courses or subjects?",
@@ -509,45 +472,51 @@ class AIService:
         if not text:
             return "{}"
             
+        # Try Groq
         try:
-            token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else None
-        except Exception:
-            token = None
-        client = InferenceClient(token=token or Config.HUGGINGFACE_API_TOKEN, timeout=60)
-        
-        # We need a robust model for structural mapping
-        model = "mistralai/Mistral-7B-Instruct-v0.2"
-        
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are a Syllabus Parser. Your task is to extract the structural hierarchy of a university course syllabus.\n"
-                    "Output ONLY a JSON object with the following structure:\n"
-                    "{\n"
-                    "  \"units\": [\n"
-                    "    {\n"
-                    "      \"title\": \"Unit 1: [Title]\",\n"
-                    "      \"topics\": [\"Topic 1\", \"Topic 2\", ...]\n"
-                    "    },\n"
-                    "    ...\n"
-                    "  ]\n"
-                    "}\n"
-                    "Identify sections like 'Unit 1', 'Module 1', 'Chapter 1', etc. Be thorough and capture all main topics."
+            groq_key = current_app.config.get("GROQ_API_KEY") if current_app else Config.GROQ_API_KEY
+            if groq_key:
+                groq_client = Groq(api_key=groq_key)
+                completion = groq_client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are a Syllabus Parser. Your task is to extract the structural hierarchy of a university course syllabus.\n"
+                                "Output ONLY a JSON object with the following structure:\n"
+                                "{\n"
+                                "  \"units\": [\n"
+                                "    {\n"
+                                "      \"title\": \"Unit 1: [Title]\",\n"
+                                "      \"topics\": [\"Topic 1\", \"Topic 2\", ...]\n"
+                                "    },\n"
+                                "    ...\n"
+                                "  ]\n"
+                                "}\n"
+                            )
+                        },
+                        {"role": "user", "content": f"Syllabus Text:\n{text[:15000]}"}
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.1
                 )
-            },
-            {
-                "role": "user",
-                "content": f"Syllabus Text Snippet (First 15,000 chars):\n{text[:15000]}\n\nExtracted JSON Structure:"
-            }
-        ]
-        
+                return completion.choices[0].message.content
+        except Exception as e:
+            logging.error(f"Groq syllabus analysis failed: {e}")
+
+        # Fallback to HF
         try:
-            response = client.chat_completion(
-                messages=messages,
-                model=model,
-                max_tokens=2000,
-                temperature=0.1
+            token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
+            hf_client = InferenceClient(token=token, timeout=60)
+            
+            response = hf_client.chat_completion(
+                messages=[
+                    {"role": "system", "content": "Extract syllabus JSON structure from the following text. Output ONLY valid JSON."},
+                    {"role": "user", "content": f"Text: {text[:10000]}"}
+                ],
+                model="mistralai/Mistral-7B-Instruct-v0.2",
+                max_tokens=2000
             )
             
             if hasattr(response, 'choices'):
@@ -555,14 +524,11 @@ class AIService:
             else:
                 out = response.get('choices', [{}])[0].get('message', {}).get('content', '{}')
             
-            # Clean up the output to ensure it's valid JSON
-            out = out.strip()
             if "```json" in out:
                 out = out.split("```json")[1].split("```")[0].strip()
             elif "```" in out:
                 out = out.split("```")[1].split("```")[0].strip()
-                
             return out
         except Exception as e:
-            logging.error(f"Syllabus analysis failed: {e}")
+            logging.error(f"HF syllabus analysis fallback failed: {e}")
             return "{}"
