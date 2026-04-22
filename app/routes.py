@@ -2460,7 +2460,7 @@ def query():
                 # Prioritize studies content
                 sys_rel = (system_bits and system_bits[0].get('distance', 10) < Config.VECTOR_MAX_DISTANCE/2)
                 sys_limit = 1 if sys_rel else 0
-                acad_limit = 10
+                acad_limit = 7
             
             final_context_bits = system_bits[:sys_limit] + academic_bits[:acad_limit]
             
