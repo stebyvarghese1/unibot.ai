@@ -388,7 +388,10 @@ def delete_account():
         from app.services.vector_store import VectorStore
         vector_store = VectorStore.get_instance()
         for doc in user.documents:
-            vector_store.remove_document(doc.id)
+            try:
+                vector_store.remove_document(doc.id)
+            except Exception:
+                pass
     except Exception as e:
         logging.error(f"Error removing docs from vector store during account delete: {e}")
 
@@ -405,6 +408,13 @@ def delete_account():
                 supa.delete_file(f"chunks/{doc.id}.json")
             except Exception:
                 pass
+        
+        # Finally, delete user from Supabase Auth if they signed up via social/auth
+        try:
+            supa.delete_user_by_email(user.email)
+        except Exception:
+            pass
+            
     except Exception as e:
         logging.error(f"Error removing files from storage during account delete: {e}")
 
@@ -1737,11 +1747,14 @@ def admin_delete_user(user_id):
         from app.services.vector_store import VectorStore
         vector_store = VectorStore.get_instance()
         for doc in user.documents:
-            vector_store.remove_document(doc.id)
+            try:
+                vector_store.remove_document(doc.id)
+            except Exception:
+                pass
     except Exception:
         pass
 
-    # Clean up Storage
+    # Clean up Storage & Supabase Auth
     try:
         supa = SupabaseService()
         for doc in user.documents:
@@ -1750,6 +1763,12 @@ def admin_delete_user(user_id):
                 except Exception: pass
             try: supa.delete_file(f"chunks/{doc.id}.json")
             except Exception: pass
+            
+        # Delete user from Supabase Auth
+        try:
+            supa.delete_user_by_email(user.email)
+        except Exception:
+            pass
     except Exception:
         pass
 
