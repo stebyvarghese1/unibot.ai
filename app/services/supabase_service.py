@@ -114,4 +114,33 @@ class SupabaseService:
         except Exception as e:
             raise RuntimeError(f"Storage list failed: {e}")
 
+    def delete_user_by_email(self, email: str):
+        """
+        Deletes a user from Supabase Auth by their email address.
+        Requires Service Role Key.
+        """
+        try:
+            # 1. Find user by email
+            # Note: auth.admin.list_users() is available in newer versions of supabase-py
+            # If not, we can use the direct GoTrue API
+            users_res = self.client.auth.admin.list_users()
+            target_user = None
+            
+            # The response structure might vary slightly depending on version
+            users = getattr(users_res, 'users', users_res if isinstance(users_res, list) else [])
+            
+            for u in users:
+                if u.email.lower() == email.lower():
+                    target_user = u
+                    break
+            
+            if target_user:
+                self.client.auth.admin.delete_user(target_user.id)
+                return True
+            return False
+        except Exception as e:
+            import logging
+            logging.error(f"Failed to delete user from Supabase Auth: {e}")
+            return False
+
 
