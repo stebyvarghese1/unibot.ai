@@ -107,7 +107,7 @@ class AIService:
             batch = texts[i:i + BATCH_SIZE]
             batch_num = (i // BATCH_SIZE) + 1
             
-            for attempt in range(3):
+            for attempt in range(4): # Increased to 4 attempts
                 try:
                     # result can be numpy array or list
                     result = client.feature_extraction(batch, model=model)
@@ -119,35 +119,33 @@ class AIService:
                         res_list = result
                     
                     # If batch has 1 element, some models return [vector] and some return [float, float...]
-                    # We need to ensure we return a list of vectors [[float...]]
                     if len(batch) == 1:
                         # check if it's a list of floats (single vector) or list of lists
                         if res_list and not isinstance(res_list[0], list):
                             res_list = [res_list]
                     
                     all_embeddings.extend(res_list)
-                    
-                    # Progress logging for large batches
-                    if len(texts) > 100 and batch_num % 5 == 0:
-                        print(f"Embedding progress: {batch_num}/{total_batches} batches completed")
-                    break  # Success, break out of retry loop
+                    break 
                         
                 except Exception as e:
+                    err_msg = str(e).lower()
                     logging.warning(f"Batch embedding attempt {attempt + 1} failed at index {i}: {e}")
-                    if attempt == 2:
-                        logging.error(f"Batch embedding failed permanently at index {i} after 3 attempts.")
-                        # If a batch fails, we could either stop or continue with partial results.
-                        # For consistency, let's raise if the first batch fails, or if it's critical.
+                    
+                    # If the model is loading, wait longer. Hugging Face specific error pattern.
+                    if "loading" in err_msg or "503" in err_msg:
+                        wait_time = (attempt + 1) * 5 # 5s, 10s, 15s...
+                        time.sleep(wait_time)
+                    elif attempt == 3:
+                        logging.error(f"Batch embedding failed permanently at index {i} after 4 attempts.")
                         if not all_embeddings:
                             raise e
-                        # For subsequent batches, continue with what we have
                     else:
-                        time.sleep(1)  # Wait before retrying
+                        time.sleep(2) 
                     
         return all_embeddings
 
     @staticmethod
-    def generate_answer(question, context, history=None, syllabus_context=None):
+    def generate_answer(question, context, history=None, syllabus_context=None, custom_sys_prompt=None):
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else None
         except Exception:
@@ -155,15 +153,15 @@ class AIService:
         client = InferenceClient(token=token or Config.HUGGINGFACE_API_TOKEN, timeout=45)
         
         # 1. System Prompt
-        sys_prompt = (
+        sys_prompt = custom_sys_prompt or (
             "You are a sophisticated AI-powered Intelligence Assistant. Your personality and identity are dynamically defined by the 'Context' provided below.\n\n"
             "CRITICAL RULES:\n"
             "1. IDENTITY AWARENESS: Use the provided 'Software Identity' or 'About this Software' information to inform your persona ONLY if the user is asking about your identity, purpose, or creators. For general or academic questions, act as a neutral and professional assistant.\n"
             "2. ADAPTIVE ROLE: If the context is purely academic (Syllabus/Courses), act as a precise 'University Academic Advisor'. If the context contains software manuals, act as the 'Official System Interface'.\n"
             "3. RECOGNIZE INTENT: Match the user's requested depth. If they want a summary, be brief. If they want data (dates, names, fees), be exact and use **bolding**.\n"
-            "4. INTELLIGENT GROUNDING: Use the provided context to answer knowledge-based questions. If the information is not in the context, but the user is engaging in casual talk (greetings, 'how are you', 'tell me a joke', philosophical questions), you MAY use your general intelligence to provide a polite and helpful response. Maintain your persona as a university assistant.\n"
-            "5. NO HALLUCINATION: If the user asks a specific factual question about a course, syllabus, or university policy that is NOT in the context, explicitly state: 'Not available in my current knowledge base for this category'.\n"
-            "6. FORMATTING: Use professional Markdown. Use '###' for headers and bullets for lists. Ensure tone is premium, professional, and helpful."
+            "4. INTELLIGENT GROUNDING: Use the provided context to answer knowledge-based questions. If the context is empty or irrelevant, you SHOULD use your general knowledge to provide a helpful, polite, and professional response as a university assistant. Do NOT simply say 'I don't know' unless it's a very specific factual question that requires document evidence.\n"
+            "5. NO HALLUCINATION: If the user asks a specific factual question about a course, syllabus, or university policy that is definitely NOT in the context AND not common knowledge, explicitly state: 'Not available in my current knowledge base for this category'.\n"
+            "6. FORMATTING: Use professional Markdown. Use '###' for headers and bullets for lists."
         )
 
         if syllabus_context:
@@ -249,7 +247,7 @@ class AIService:
                         continue
                         
             logging.error("All fallback models failed to generate an answer.")
-            return "Not available in uploaded documents."
+            return "The AI service is currently experiencing high load or is temporarily unavailable. Please try your question again in a moment."
         except Exception as e:
             return f"Error generating answer: {e}"
 
@@ -352,7 +350,7 @@ class AIService:
 
     @staticmethod
     def is_smalltalk(text: str) -> bool:
-        t = (text or "").strip().lower().strip('.').strip('!').strip('?')
+        t = (text or "").strip().lower().strip('.').strip('!').strip('?').strip()
         if not t: return False
         
         # Expanded greetings and common conversational acknowledgments
@@ -360,28 +358,34 @@ class AIService:
             "hi", "hello", "hey", "thanks", "thank you", "good morning", "good evening", "good afternoon",
             "nice", "okay", "ok", "oka", "cool", "great", "excellent", "awesome", "perfect",
             "wow", "i see", "understood", "got it", "fine", "yes", "no", "bye", "goodbye",
-            "hii", "hiii", "heyy", "heyyy", "helloo", "hellooo"
+            "hii", "hiii", "hiiii", "heyy", "heyyy", "helloo", "hellooo"
         ]
         
         # Exact matches or matches in our extended list
         if t in smalltalk_phrases:
             return True
             
+        # Handle simple greetings with punctuation
+        cleaned_t = "".join(filter(str.isalnum, t))
+        if cleaned_t in ["hi", "hello", "hey", "hii", "hiii", "heyy", "heyyy"]:
+            return True
+
         # Handle repeated characters (e.g., "heyyyyy")
         import re
-        # Normalize repeated characters to single (e.g., "heyyyyy" -> "hey")
-        # We only do this for very short messages to avoid false positives on technical terms
         words = t.split()
         if len(words) == 1:
             norm_w = re.sub(r'(.)\1+', r'\1', words[0])
             # Common greet roots
-            if norm_w in ["hi", "he", "hey", "helo", "hello"]:
+            if norm_w in ["hi", "he", "hey", "helo", "hello", "thank"]:
                 return True
         
         # If it's a very short message (1-2 words) that matches any of these, it's smalltalk
         if len(words) <= 2:
             if any(t == p or t.startswith(p + " ") or t.endswith(" " + p) for p in smalltalk_phrases):
                 # But only if it doesn't look like a real search (e.g., 'fine art' is NOT smalltalk)
+                # Short phrases like "who are you" should NOT be smalltalk (they are identity intent)
+                if t in ["how are you", "what's up", "whats up", "how r u"]:
+                    return True
                 if len(words) == 1 or t in ["i see", "got it", "thank you", "good morning", "good evening", "good afternoon"]:
                     return True
         
