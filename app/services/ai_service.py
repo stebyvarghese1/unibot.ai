@@ -6,6 +6,11 @@ import time
 import logging
 import json
 
+def approx_tokens(text: str) -> int:
+    """Rough estimate of tokens from text (1 word ~= 1.3 tokens)"""
+    if not text: return 0
+    return int(len(text.split()) * 1.35)
+
 class AIService:
     @staticmethod
     def rewrite_query(question, history):
@@ -141,7 +146,7 @@ class AIService:
 
     @staticmethod
     def generate_answer(question, context, history=None, syllabus_context=None, custom_sys_prompt=None, user_preferred_name=None, course_name=None):
-        # 1. Base Identity and User Name
+        # 1. Base Identity
         base_identity = "You are a sophisticated AI-powered Intelligence Assistant. Your name is Unibot."
         
         # 2. System Prompt construction
@@ -186,8 +191,21 @@ class AIService:
                 groq_client = Groq(api_key=groq_key)
                 model = current_app.config.get("GROQ_LLM_MODEL") if current_app else Config.GROQ_LLM_MODEL
                 
-                # Try Llama 3 70B for high-quality generation if it's not already the default
-                try_models = [model, "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+                # Model selection strategy:
+                # llama-3.1-8b has a 6k TPM limit. If we are above that, skip it.
+                # llama-3.3-70b has a 100k TPD limit.
+                
+                total_text = sys_prompt + context + question
+                for m in history or []:
+                     total_text += m.get('content', '')
+                
+                req_tokens = approx_tokens(total_text) + 500
+                
+                try_models = [model, "llama-3.3-70b-versatile"]
+                # Only try 8b if the request is small enough
+                if req_tokens < 5500:
+                    try_models.append("llama-3.1-8b-instant")
+                
                 for m in try_models:
                     if not m: continue
                     try:
@@ -201,7 +219,11 @@ class AIService:
                         if out and len(out.strip()) > 0:
                             return out.strip()
                     except Exception as ge:
+                        err_msg = str(ge).lower()
                         logging.warning(f"Groq generation failed with {m}: {ge}")
+                        # If it's a rate limit or too large, continue to next model
+                        if "429" in err_msg or "rate_limit" in err_msg or "413" in err_msg:
+                             continue
         except Exception as e:
             logging.error(f"Groq setup failed: {e}")
 
@@ -215,6 +237,7 @@ class AIService:
                 "HuggingFaceH4/zephyr-7b-beta",
                 "microsoft/Phi-3-mini-4k-instruct"
             ]
+
             
             for mdl in hf_fallbacks:
                 try:
