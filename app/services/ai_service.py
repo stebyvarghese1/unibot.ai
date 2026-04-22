@@ -140,11 +140,9 @@ class AIService:
         return all_embeddings
 
     @staticmethod
-    def generate_answer(question, context, history=None, syllabus_context=None, custom_sys_prompt=None, user_preferred_name=None):
+    def generate_answer(question, context, history=None, syllabus_context=None, custom_sys_prompt=None, user_preferred_name=None, course_name=None):
         # 1. Base Identity and User Name
         base_identity = "You are a sophisticated AI-powered Intelligence Assistant. Your name is Unibot."
-        if user_preferred_name:
-            base_identity += f" The user you are helping is named {user_preferred_name}. Always address them by this name if they ask who they are or what their name is."
         
         # 2. System Prompt construction
         if custom_sys_prompt:
@@ -155,16 +153,18 @@ class AIService:
                 "Your personality and identity are dynamically defined by the 'Context' provided below.\n\n"
                 "CRITICAL RULES:\n"
                 "1. IDENTITY AWARENESS: Use the provided 'Software Identity' or 'About this Software' information to inform your persona ONLY if the user is asking about your identity, purpose, or creators. For general or academic questions, act as a neutral and professional assistant.\n"
-                "2. ADAPTIVE ROLE: If the context is purely academic (Syllabus/Courses), act as a precise 'University Academic Advisor'. If the context contains software manuals, act as the 'Official System Interface'.\n"
-                "3. RECOGNIZE INTENT: Match the user's requested depth. If they want a summary, be brief. If they want data (dates, names, fees), be exact and use **bolding**.\n"
-                "4. INTELLIGENT GROUNDING: Use the provided context to answer knowledge-based questions. If the context is empty or irrelevant, you SHOULD use your general knowledge to provide a helpful, polite, and professional response as a university assistant. Do NOT simply say 'I don't know' unless it's a very specific factual question that requires document evidence.\n"
-                "5. NO HALLUCINATION: If the user asks a specific factual question about a course, syllabus, or university policy that is definitely NOT in the context AND not common knowledge, explicitly state: 'Not available in my current knowledge base for this category'.\n"
-                "6. FORMATTING: Use professional Markdown. Use '###' for headers and bullets for lists."
+                f"2. USER PERSONALIZATION: The user you are helping is named '{user_preferred_name or 'the student'}'. If they ask 'who am I' or 'what is my name', you MUST answer with their name. If no name is provided, politely ask them to set their preferred name in the profile settings.\n"
+                "3. ADAPTIVE ROLE: If the context is purely academic (Syllabus/Courses), act as a precise 'University Academic Advisor'. If the context contains software manuals, act as the 'Official System Interface'.\n"
+                "4. RECOGNIZE INTENT: Match the user's requested depth. If they want a summary, be brief. If they want data (dates, names, fees), be exact and use **bolding**.\n"
+                "5. INTELLIGENT GROUNDING: Use the provided context to answer knowledge-based questions. If the context is empty or irrelevant, you SHOULD use your general knowledge to provide a helpful, polite, and professional response as a university assistant. Do NOT simply say 'I don't know' unless it's a very specific factual question that requires document evidence.\n"
+                "6. NO HALLUCINATION: If the user asks a specific factual question about a course, syllabus, or university policy that is definitely NOT in the context AND not common knowledge, explicitly state: 'Not available in my current knowledge base for this category'.\n"
+                "7. FORMATTING: Use professional Markdown. Use '###' for headers and bullets for lists."
             )
 
         if syllabus_context:
+            course_label = (course_name or "Academic").upper()
             sys_prompt += (
-                "\n\nSYLLABUS GROUNDING (MASTER INTELLIGENCE):\n"
+                f"\n\nSYLLABUS GROUNDING ({course_label}):\n"
                 f"{syllabus_context}\n"
                 "The above block is the OFFICIAL syllabus for this subject. If the user asks for a unit syllabus, extract it from here. "
                 "If the user asks a question, ensure the topic is covered by this syllabus. If it is NOT in the syllabus, "
@@ -254,14 +254,15 @@ class AIService:
                     "role": "system",
                     "content": (
                         "You are Unibot, a university assistant analyzing webpage content. "
-                        + (f"You are currently helping {user_preferred_name}." if user_preferred_name else "")
+                        + (f"The user you are helping is named '{user_preferred_name}'. Always address them by this name if they ask who they are." if user_preferred_name else "The user has not provided a name yet.")
                         + "\n\nUse ONLY the provided webpage text.\n\n"
                         "CORE RULES:\n"
                         "1. ADAPTIVE STYLE: Follow the user's lead. If they request a specific format (e.g., 'give me a summary' or 'list the fees'), prioritize that request.\n"
-                        "2. DEFAULT FORMAT: Briefly answer in 2-3 sentences, then provide a '### Details' section with bullet points for specific facts.\n"
-                        "3. STRICT GROUNDING: Do not use external knowledge. If the info isn't on the page, say: 'This information is not found on the page.'\n"
-                        "4. FORMATTING: Use **bold** for dates, fees, numbers, and names.\n"
-                        "5. VERIFICATION: Ensure all extracted information is accurate relative to the provided text."
+                        "2. IDENTITY: If the user asks 'who am I', answer with their name using the information provided above.\n"
+                        "3. DEFAULT FORMAT: Briefly answer in 2-3 sentences, then provide a '### Details' section with bullet points for specific facts.\n"
+                        "4. STRICT GROUNDING: Do not use external knowledge. If the info isn't on the page, say: 'This information is not found on the page.'\n"
+                        "5. FORMATTING: Use **bold** for dates, fees, numbers, and names.\n"
+                        "6. VERIFICATION: Ensure all extracted information is accurate relative to the provided text."
                     )
                 }
             ]
