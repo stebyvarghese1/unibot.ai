@@ -27,8 +27,8 @@ class Config:
     # Hugging Face
     HUGGINGFACE_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
     HF_EMBEDDING_MODEL = os.getenv('HF_EMBEDDING_MODEL', 'sentence-transformers/all-MiniLM-L6-v2')
-    HF_LLM_MODEL = os.getenv('HF_LLM_MODEL', 'google/gemma-2b-it')
-    HF_SMALLTALK_MODEL = os.getenv('HF_SMALLTALK_MODEL', 'google/gemma-2b-it')
+    HF_LLM_MODEL = os.getenv('HF_LLM_MODEL', 'mistralai/Mistral-7B-Instruct-v0.2')
+    HF_SMALLTALK_MODEL = os.getenv('HF_SMALLTALK_MODEL', 'HuggingFaceH4/zephyr-7b-beta')
     HF_IMAGE_CAPTION_MODEL = os.getenv('HF_IMAGE_CAPTION_MODEL', 'Salesforce/blip-image-captioning-large')
     
     # Uploads (using Supabase storage only, no local storage)
