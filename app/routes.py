@@ -2239,35 +2239,42 @@ def query():
                     logging.info(f"Expanded Query: '{question}' -> '{standalone_question}'")
             
             # 1. Embed question (Studies mode)
-            q_embedding = AIService.get_embeddings([standalone_question])
-            # get_embeddings returns list of list (batch), we need the first one if it's a list
-            if isinstance(q_embedding, list) and len(q_embedding) > 0:
-                 # Handle varying return types from HF API (sometimes list of float, sometimes list of list)
-                 if isinstance(q_embedding[0], list):
-                     q_vec = q_embedding[0]
-                 else:
-                     q_vec = q_embedding
-                 logging.info(f"Successfully embedded question. Vector length: {len(q_vec)}")
-            else:
-                 logging.error(f"Failed to embed question. Response: {q_embedding}")
-                 return jsonify({'error': 'Failed to embed question'}), 500
+            try:
+                q_embedding = AIService.get_embeddings([standalone_question])
+                # get_embeddings returns list of list (batch), we need the first one if it's a list
+                if isinstance(q_embedding, list) and len(q_embedding) > 0:
+                     if isinstance(q_embedding[0], list):
+                         q_vec = q_embedding[0]
+                     else:
+                         q_vec = q_embedding
+                     logging.info(f"Successfully embedded question. Vector length: {len(q_vec)}")
+                else:
+                     logging.error(f"Failed to embed question. Response: {q_embedding}")
+                     q_vec = None
+            except Exception as e:
+                logging.error(f"Embedding service failed: {e}")
+                q_vec = None
 
             # --- Intelligence Tier: Identity Intent Detection ---
             id_keywords = [
                 'who are you', 'who you are', "who you're", 'what are you', 'your name', 
                 'created you', 'developer', 'about yourself', 'about you', 'your purpose', 
                 'what can you do', 'how you work', 'about this software', 'about the bot',
-                'unibot', 'who created this', 'what are your skills'
+                'unibot', 'who created this', 'what are your skills', 'who made this',
+                'tell me about unibot', 'what is unibot'
             ]
             identity_intent = any(k in question.lower() for k in id_keywords)
             
             # 2. Search
+            results = []
             from app.services.vector_store import VectorStore
-            vector_store = VectorStore.get_instance()
-            
-            # Dynamic K: Increase depth if we suspect an identity query to ensure system info is found
-            search_k = 40 if identity_intent else 25
-            results = vector_store.search(q_vec, k=search_k)
+            if q_vec:
+                vector_store = VectorStore.get_instance()
+                # Dynamic K: Increase depth if we suspect an identity query to ensure system info is found
+                search_k = 40 if identity_intent else 25
+                results = vector_store.search(q_vec, k=search_k)
+            else:
+                logging.info("Skipping vector search due to missing embedding (service busy).")
             
             # 1. Fetch documents for metadata mapping fallback
             doc_map = {d.id: d for d in Document.query.all()}
@@ -2365,17 +2372,12 @@ def query():
             final_context_bits = system_bits[:sys_limit] + academic_bits[:acad_limit]
             
             if not final_context_bits:
-                # If we have history, we might still be able to answer from what was said before
                 if not history:
-                    # If it's a short question, it might be an overlooked greeting/smalltalk
-                    # If no context is found and it's not a tiny query (which is handled above),
-                    # we still want to allow the LLM to provide a 'casual' response 
-                    # as per the user's request, instead of a hard blocking error.
                     if not Document.query.first():
                         return jsonify({'answer': 'No documents have been uploaded yet.', 'sources': []})
                     
-                    logging.info(f"No context found for first message in session {session_id}. Proceeding to LLM for casual response.")
-                    # We continue to the normal generation flow
+                    logging.info(f"No context found for first message in session {session_id}. Providing fallback guidance.")
+                    # We continue but inform the LLM that context is missing
                 else:
                     logging.info(f"Context empty but history found for session {session_id}. Proceeding to LLM.")
             
@@ -2388,8 +2390,23 @@ def query():
                     syllabus_intel = master.structure_json
                     logging.info(f"Grounded query in Master Syllabus Intelligence: {master.filename}")
 
+            # Construct special instruction if embedding failed or context empty
+            custom_instruct = None
+            if not q_vec:
+                custom_instruct = (
+                    "SYSTEM NOTICE: The embedding service is momentarily busy and couldn't retrieve documents. "
+                    "Please answer the user's question using your GENERAL KNOWLEDGE while acting as their university assistant. "
+                    "If you cannot answer without specific documents, politely explain that the intelligent retrieval system is experiencing high load."
+                )
+            elif not final_context_bits:
+                custom_instruct = (
+                    "SYSTEM NOTICE: No specific documents were found for this query. "
+                    "Please answer using your GENERAL KNOWLEDGE as a professional university assistant. "
+                    "If the user is asking about a specific course fact that is not common knowledge, mention that you couldn't find it in their uploaded documents."
+                )
+
             context = "\n\n".join([r['text'] for r in final_context_bits])
-            answer = AIService.generate_answer(question, context, history=history, syllabus_context=syllabus_intel)
+            answer = AIService.generate_answer(question, context, history=history, syllabus_context=syllabus_intel, custom_sys_prompt=custom_instruct)
             
             # Deduplicate sources
             unique = {}
