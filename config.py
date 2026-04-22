@@ -4,7 +4,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
+    SECRET_KEY = os.getenv('SECRET_KEY')
+    if not SECRET_KEY:
+        if os.getenv('FLASK_ENV') == 'production':
+            raise RuntimeError("SECRET_KEY must be set in production environment")
+        SECRET_KEY = 'dev-fallback-key-for-local-use-only'
     _DB_URL = os.getenv('SUPABASE_DB_URL', os.getenv('DATABASE_URL', 'sqlite:///app.db'))
     if _DB_URL.startswith('postgresql://') and 'supabase.co' in _DB_URL and 'sslmode=' not in _DB_URL:
         _DB_URL = _DB_URL + ('&sslmode=require' if '?' in _DB_URL else '?sslmode=require')
