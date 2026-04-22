@@ -2367,9 +2367,15 @@ def query():
             if not final_context_bits:
                 # If we have history, we might still be able to answer from what was said before
                 if not history:
+                    # If it's a short question, it might be an overlooked greeting/smalltalk
+                    # If no context is found and it's not a tiny query (which is handled above),
+                    # we still want to allow the LLM to provide a 'casual' response 
+                    # as per the user's request, instead of a hard blocking error.
                     if not Document.query.first():
                         return jsonify({'answer': 'No documents have been uploaded yet.', 'sources': []})
-                    return jsonify({'answer': 'Not available in selected category (No context found).', 'sources': []})
+                    
+                    logging.info(f"No context found for first message in session {session_id}. Proceeding to LLM for casual response.")
+                    # We continue to the normal generation flow
                 else:
                     logging.info(f"Context empty but history found for session {session_id}. Proceeding to LLM.")
             
