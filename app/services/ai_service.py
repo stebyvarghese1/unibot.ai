@@ -161,8 +161,9 @@ class AIService:
             "1. IDENTITY AWARENESS: Use the provided 'Software Identity' or 'About this Software' information to inform your persona ONLY if the user is asking about your identity, purpose, or creators. For general or academic questions, act as a neutral and professional assistant.\n"
             "2. ADAPTIVE ROLE: If the context is purely academic (Syllabus/Courses), act as a precise 'University Academic Advisor'. If the context contains software manuals, act as the 'Official System Interface'.\n"
             "3. RECOGNIZE INTENT: Match the user's requested depth. If they want a summary, be brief. If they want data (dates, names, fees), be exact and use **bolding**.\n"
-            "4. STRICT GROUNDING: Use ONLY the provided context to answer knowledge-based questions. If the user asks about the conversation itself (e.g., 'What did we talk about first?'), answer based on the provided conversation history. Only say: 'Not available in my current knowledge base' if the information is missing from BOTH context and history.\n"
-            "5. FORMATTING: Use professional Markdown. Use '###' for headers and bullets for lists. Ensure tone is premium, professional, and helpful."
+            "4. INTELLIGENT GROUNDING: Use the provided context to answer knowledge-based questions. If the information is not in the context, but the user is engaging in casual talk (greetings, 'how are you', 'tell me a joke', philosophical questions), you MAY use your general intelligence to provide a polite and helpful response. Maintain your persona as a university assistant.\n"
+            "5. NO HALLUCINATION: If the user asks a specific factual question about a course, syllabus, or university policy that is NOT in the context, explicitly state: 'Not available in my current knowledge base for this category'.\n"
+            "6. FORMATTING: Use professional Markdown. Use '###' for headers and bullets for lists. Ensure tone is premium, professional, and helpful."
         )
 
         if syllabus_context:
@@ -351,26 +352,39 @@ class AIService:
 
     @staticmethod
     def is_smalltalk(text: str) -> bool:
-        t = (text or "").strip().lower().strip('.').strip('!')
+        t = (text or "").strip().lower().strip('.').strip('!').strip('?')
+        if not t: return False
+        
         # Expanded greetings and common conversational acknowledgments
         smalltalk_phrases = [
             "hi", "hello", "hey", "thanks", "thank you", "good morning", "good evening", "good afternoon",
             "nice", "okay", "ok", "oka", "cool", "great", "excellent", "awesome", "perfect",
-            "wow", "i see", "understood", "got it", "fine", "yes", "no", "bye", "goodbye"
+            "wow", "i see", "understood", "got it", "fine", "yes", "no", "bye", "goodbye",
+            "hii", "hiii", "heyy", "heyyy", "helloo", "hellooo"
         ]
         
-        # If it's a very short message (1-2 words) that matches any of these, it's smalltalk
+        # Exact matches or matches in our extended list
+        if t in smalltalk_phrases:
+            return True
+            
+        # Handle repeated characters (e.g., "heyyyyy")
+        import re
+        # Normalize repeated characters to single (e.g., "heyyyyy" -> "hey")
+        # We only do this for very short messages to avoid false positives on technical terms
         words = t.split()
+        if len(words) == 1:
+            norm_w = re.sub(r'(.)\1+', r'\1', words[0])
+            # Common greet roots
+            if norm_w in ["hi", "he", "hey", "helo", "hello"]:
+                return True
+        
+        # If it's a very short message (1-2 words) that matches any of these, it's smalltalk
         if len(words) <= 2:
             if any(t == p or t.startswith(p + " ") or t.endswith(" " + p) for p in smalltalk_phrases):
                 # But only if it doesn't look like a real search (e.g., 'fine art' is NOT smalltalk)
                 if len(words) == 1 or t in ["i see", "got it", "thank you", "good morning", "good evening", "good afternoon"]:
                     return True
         
-        # Exact matches for common greetings
-        if t in smalltalk_phrases:
-            return True
-            
         return False
 
     @staticmethod
