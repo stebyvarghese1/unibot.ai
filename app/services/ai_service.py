@@ -13,6 +13,13 @@ class AIService:
         if not history:
             return question
             
+        # Build history string
+        history_snippet = history[-6:]
+        history_str = ""
+        for m in history_snippet:
+            role = "Assistant" if m['role'] == 'assistant' else "User"
+            history_str += f"{role}: {m['content'][:250]}...\n" if len(m['content']) > 250 else f"{role}: {m['content']}\n"
+
         # Try Groq first if key exists
         try:
             groq_key = current_app.config.get("GROQ_API_KEY") if current_app else Config.GROQ_API_KEY
@@ -23,7 +30,7 @@ class AIService:
                     {"role": "user", "content": f"History:\n{history_str}\n\nLatest Message: {question}\n\nStandalone Query:"}
                 ]
                 completion = groq_client.chat.completions.create(
-                    model="llama3-8b-8192",
+                    model="llama-3.1-8b-instant",
                     messages=rewrite_messages,
                     temperature=0,
                     max_tokens=100
@@ -63,8 +70,6 @@ class AIService:
                 return result
         except Exception as e:
             logging.warning(f"Hugging Face query rewrite fallback failed: {e}")
-                
-        return question
                 
         return question
 
@@ -175,7 +180,7 @@ class AIService:
                 model = current_app.config.get("GROQ_LLM_MODEL") if current_app else Config.GROQ_LLM_MODEL
                 
                 # Try Llama 3 70B for high-quality generation if it's not already the default
-                try_models = [model, "llama3-70b-8192", "llama3-8b-8192"]
+                try_models = [model, "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
                 for m in try_models:
                     if not m: continue
                     try:
@@ -375,7 +380,7 @@ class AIService:
             if groq_key:
                 groq_client = Groq(api_key=groq_key)
                 completion = groq_client.chat.completions.create(
-                    model="llama3-8b-8192",
+                    model="llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + (f"The user's name is {user_preferred_name}." if user_preferred_name else "")},
                         {"role": "user", "content": text}
@@ -478,7 +483,7 @@ class AIService:
             if groq_key:
                 groq_client = Groq(api_key=groq_key)
                 completion = groq_client.chat.completions.create(
-                    model="llama3-8b-8192",
+                    model="llama-3.1-8b-instant",
                     messages=[
                         {
                             "role": "system",
