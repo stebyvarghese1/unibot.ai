@@ -24,11 +24,12 @@ class Config:
     SUPABASE_BUCKET = os.getenv('SUPABASE_BUCKET', 'documents')
     SUPABASE_SERVICE_ROLE = os.getenv('SUPABASE_SERVICE_ROLE')
     
-    # Hugging Face
+    # AI Services
     HUGGINGFACE_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
+    GROQ_API_KEY = os.getenv('GROQ_API_KEY')
     HF_EMBEDDING_MODEL = os.getenv('HF_EMBEDDING_MODEL', 'sentence-transformers/all-MiniLM-L6-v2')
-    HF_LLM_MODEL = os.getenv('HF_LLM_MODEL', 'mistralai/Mistral-7B-Instruct-v0.2')
-    HF_SMALLTALK_MODEL = os.getenv('HF_SMALLTALK_MODEL', 'HuggingFaceH4/zephyr-7b-beta')
+    GROQ_LLM_MODEL = os.getenv('GROQ_LLM_MODEL', 'llama3-8b-8192')
+    GROQ_SMALLTALK_MODEL = os.getenv('GROQ_SMALLTALK_MODEL', 'llama3-8b-8192')
     HF_IMAGE_CAPTION_MODEL = os.getenv('HF_IMAGE_CAPTION_MODEL', 'Salesforce/blip-image-captioning-large')
     
     # Uploads (using Supabase storage only, no local storage)
