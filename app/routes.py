@@ -2238,7 +2238,7 @@ def query():
         try:
             from app.services.ai_service import AIService
             if AIService.is_smalltalk(question):
-                answer = AIService.generate_smalltalk(question, user_preferred_name=pref_name)
+                answer = AIService.generate_smalltalk(question, user_preferred_name=pref_name, course=course, semester=semester, subject=subject)
                 try:
                     msg = ChatMessage(
                         user_id=session['user_id'],
@@ -2299,7 +2299,7 @@ def query():
                      return jsonify({'answer': 'I processed the website but found no content relevant to your question.', 'sources': []})
                 
                 # Generate
-                answer = AIService.generate_answer_from_website(question, context, source_url=target_urls[0], history=history, user_preferred_name=pref_name)
+                answer = AIService.generate_answer_from_website(question, context, source_url=target_urls[0], history=history, user_preferred_name=pref_name, course=course, semester=semester, subject=subject)
                 
                 # Save
                 try:
@@ -2509,7 +2509,7 @@ def query():
                 )
 
             context = "\n\n".join([r['text'] for r in final_context_bits])
-            answer = AIService.generate_answer(question, context, history=history, syllabus_context=syllabus_intel, custom_sys_prompt=custom_instruct, user_preferred_name=pref_name, course_name=course)
+            answer = AIService.generate_answer(question, context, history=history, syllabus_context=syllabus_intel, custom_sys_prompt=custom_instruct, user_preferred_name=pref_name, course=course, semester=semester, subject=subject)
             
             # Deduplicate sources
             unique = {}
