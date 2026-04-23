@@ -408,13 +408,24 @@
                 </svg>
             </div>
             <h3 class="text-xl font-black text-slate-900 mb-2">Confirm Deletion</h3>
-            <p class="text-sm text-slate-500 mb-6 leading-relaxed font-medium">This action is permanent. Please enter your password to confirm account deletion.</p>
+            <p class="text-sm text-slate-500 mb-6 leading-relaxed font-medium" id="delete-modal-desc">This action is permanent. Please enter your password to confirm account deletion.</p>
             
             <div class="space-y-4">
-                <div class="space-y-1">
+                <div id="pwd-delete-container" class="space-y-1">
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Your Password</label>
                     <input type="password" id="delete-password" placeholder="••••••••"
                         class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium input-focus">
+                </div>
+
+                <div id="otp-delete-container" class="hidden space-y-4">
+                    <button id="request-otp-btn" class="w-full py-3 bg-indigo-50 text-indigo-600 font-bold rounded-xl hover:bg-indigo-100 transition-all text-sm">
+                        Request Verification Code
+                    </button>
+                    <div id="otp-input-group" class="hidden space-y-1">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Verification Code</label>
+                        <input type="text" id="delete-otp" placeholder="Enter code"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium input-focus text-center tracking-[0.5em] font-mono">
+                    </div>
                 </div>
                 <div id="delete-error" class="hidden text-xs font-bold text-rose-500 bg-rose-50 p-3 rounded-lg border border-rose-100 italic"></div>
                 <div class="grid grid-cols-2 gap-3 pt-2">
@@ -431,6 +442,7 @@
 
     <script>
         let allFilters = [];
+        let userAuthMethod = 'Email'; // Default
         function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {
@@ -511,6 +523,22 @@
                 document.getElementById('p-avatar').innerText = prof.email ? prof.email[0].toUpperCase() : 'U';
                 document.getElementById('p-role').innerText = prof.role || 'Member';
                 document.getElementById('p-created').innerText = prof.created_at ? new Date(prof.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '--';
+
+                // Detect Auth Method
+                userAuthMethod = prof.auth_method || 'Email';
+                if (userAuthMethod === 'Google') {
+                    document.getElementById('pwd-form').innerHTML = `
+                        <div class="p-6 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-4">
+                            <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                <svg class="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z" fill="#EA4335"/></svg>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-900">Signed in with Google</h4>
+                                <p class="text-sm text-slate-600 mt-1">Your account is managed by Google. Password management is handled through your Google Account settings.</p>
+                            </div>
+                        </div>
+                    `;
+                }
 
                 // Update Filters UI
                 allFilters = filters.all || [];
@@ -600,9 +628,24 @@
         function showDeleteModal() {
             const modal = document.getElementById('delete-modal');
             const error = document.getElementById('delete-error');
-            const pwd = document.getElementById('delete-password');
+            const pwdContainer = document.getElementById('pwd-delete-container');
+            const otpContainer = document.getElementById('otp-delete-container');
+            const desc = document.getElementById('delete-modal-desc');
+            
             error.classList.add('hidden');
-            pwd.value = '';
+            document.getElementById('delete-password').value = '';
+            document.getElementById('delete-otp').value = '';
+            document.getElementById('otp-input-group').classList.add('hidden');
+            
+            if (userAuthMethod === 'Google') {
+                pwdContainer.classList.add('hidden');
+                otpContainer.classList.remove('hidden');
+                desc.innerText = "To delete your Google-linked account, we need to verify your email address with a temporary code.";
+            } else {
+                pwdContainer.classList.remove('hidden');
+                otpContainer.classList.add('hidden');
+                desc.innerText = "This action is permanent. Please enter your password to confirm account deletion.";
+            }
             
             modal.classList.remove('hidden');
             modal.classList.add('flex');
@@ -611,6 +654,37 @@
                 document.getElementById('delete-modal-content').style.transform = 'scale(1)';
             }, 10);
         }
+
+        document.getElementById('request-otp-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('request-otp-btn');
+            const errorMsg = document.getElementById('delete-error');
+            btn.disabled = true;
+            btn.innerText = "Sending code...";
+            errorMsg.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/profile/delete-otp-request', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCookie('csrf_token') }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    btn.innerText = "Code Sent!";
+                    document.getElementById('otp-input-group').classList.remove('hidden');
+                    setTimeout(() => { btn.innerText = "Resend Code"; btn.disabled = false; }, 30000);
+                } else {
+                    errorMsg.innerText = data.error || "Failed to send code";
+                    errorMsg.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.innerText = "Request Verification Code";
+                }
+            } catch (e) {
+                errorMsg.innerText = "Network error";
+                errorMsg.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerText = "Request Verification Code";
+            }
+        });
 
         function closeDeleteModal() {
             const modal = document.getElementById('delete-modal');
@@ -624,11 +698,17 @@
 
         document.getElementById('final-delete-btn').addEventListener('click', async () => {
             const password = document.getElementById('delete-password').value;
+            const otp = document.getElementById('delete-otp').value;
             const errorMsg = document.getElementById('delete-error');
             const btn = document.getElementById('final-delete-btn');
 
-            if (!password) {
+            if (userAuthMethod === 'Email' && !password) {
                 errorMsg.innerText = "Please enter your password";
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+            if (userAuthMethod === 'Google' && !otp) {
+                errorMsg.innerText = "Please enter the verification code";
                 errorMsg.classList.remove('hidden');
                 return;
             }
@@ -643,7 +723,7 @@
                         'Content-Type': 'application/json',
                         'X-CSRFToken': getCookie('csrf_token')
                     },
-                    body: JSON.stringify({ password })
+                    body: JSON.stringify({ password, otp })
                 });
                 const data = await res.json();
                 
