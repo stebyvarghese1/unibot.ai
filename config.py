@@ -15,7 +15,8 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _DB_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_pre_ping': True
+        'pool_pre_ping': True,
+        'pool_recycle': 300
     }
     
     # Supabase
@@ -28,7 +29,7 @@ class Config:
     HUGGINGFACE_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
     GROQ_API_KEY = os.getenv('GROQ_API_KEY')
     HF_EMBEDDING_MODEL = os.getenv('HF_EMBEDDING_MODEL', 'sentence-transformers/all-MiniLM-L6-v2')
-    HF_LLM_MODEL = os.getenv('HF_LLM_MODEL', 'meta-llama/Llama-3.2-3B-Instruct')
+    HF_LLM_MODEL = os.getenv('HF_LLM_MODEL', 'google/gemma-2-2b-it')
     HF_SMALLTALK_MODEL = os.getenv('HF_SMALLTALK_MODEL', 'meta-llama/Llama-3.2-1B-Instruct')
     GROQ_LLM_MODEL = os.getenv('GROQ_LLM_MODEL', 'llama-3.3-70b-versatile')
     GROQ_SMALLTALK_MODEL = os.getenv('GROQ_SMALLTALK_MODEL', 'llama-3.1-8b-instant')
