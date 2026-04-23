@@ -91,36 +91,51 @@ class SupabaseService:
         Deletes a user from Supabase Auth by their email address.
         Requires Service Role Key.
         """
+        import logging
         try:
-            # 1. Find user by email with pagination support
-            target_user = None
+            target_user_id = None
             page = 1
             per_page = 100
+            search_email = email.strip().lower()
+            
+            logging.info(f"🔍 Searching Supabase for user: {search_email}")
             
             while True:
                 users_res = self.client.auth.admin.list_users(page=page, per_page=per_page)
-                # The response structure might vary slightly depending on version
-                users = getattr(users_res, 'users', users_res if isinstance(users_res, list) else [])
+                
+                # Try multiple common response structures for compatibility
+                users = []
+                if hasattr(users_res, 'users'):
+                    users = users_res.users
+                elif hasattr(users_res, 'data') and isinstance(users_res.data, list):
+                    users = users_res.data
+                elif isinstance(users_res, list):
+                    users = users_res
                 
                 if not users:
+                    logging.info("ℹ️ No more users returned from Supabase list.")
                     break
                     
                 for u in users:
-                    if u.email and u.email.lower() == email.lower():
-                        target_user = u
+                    u_email = (getattr(u, 'email', None) or (u.get('email') if isinstance(u, dict) else None) or '').strip().lower()
+                    if u_email == search_email:
+                        target_user_id = getattr(u, 'id', None) or (u.get('id') if isinstance(u, dict) else None)
+                        logging.info(f"✅ Found user in Supabase! ID: {target_user_id}")
                         break
                 
-                if target_user or len(users) < per_page:
+                if target_user_id or len(users) < per_page:
                     break
                 page += 1
             
-            if target_user:
-                self.client.auth.admin.delete_user(target_user.id)
+            if target_user_id:
+                logging.info(f"🗑 Calling Supabase admin.delete_user for {target_user_id}")
+                self.client.auth.admin.delete_user(target_user_id)
                 return True
+            
+            logging.warning(f"⚠️ User {search_email} not found in Supabase Auth list.")
             return False
         except Exception as e:
-            import logging
-            logging.error(f"Failed to delete user from Supabase Auth: {e}")
+            logging.error(f"❌ Failed to delete user from Supabase Auth: {e}")
             return False
 
     def send_otp(self, email: str):
