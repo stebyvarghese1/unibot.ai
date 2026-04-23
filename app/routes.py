@@ -402,31 +402,55 @@ def _perform_full_user_cleanup(user):
     except Exception as e:
         logging.error(f"External storage/auth cleanup failed: {e}")
 
+@bp.route('/api/profile/delete-otp-request', methods=['POST'])
+@login_required
+def delete_otp_request():
+    try:
+        user = User.query.get(session['user_id'])
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        supa = SupabaseService()
+        if supa.send_otp(user.email):
+            return jsonify({'message': 'A verification code has been sent to your email. Please enter it to confirm deletion.'})
+        return jsonify({'error': 'Failed to send verification code. Please try again.'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @bp.route('/api/profile', methods=['DELETE'])
 @login_required
 def delete_account():
     data = request.json or {}
     password = data.get('password')
+    otp = data.get('otp')
     
     user = User.query.get(session['user_id'])
     if not user:
         return jsonify({'error': 'User not found'}), 404
         
-    # Social accounts (Google) don't have a password_hash. 
-    # Only verify password if the user actually has one set.
+    # Validation Logic
     if user.password_hash:
+        # 1. Email/Password users use their password
         if not password:
             return jsonify({'error': 'Password is required for confirmation'}), 400
         if not check_password_hash(user.password_hash, password):
             return jsonify({'error': 'Invalid password. Account deletion aborted.'}), 400
+    else:
+        # 2. Social (Google) users MUST use an OTP since they have no local password
+        if not otp:
+            return jsonify({'error': 'Verification code (OTP) is required for social account deletion'}), 400
+        
+        supa = SupabaseService()
+        if not supa.verify_otp(user.email, otp):
+            return jsonify({'error': 'Invalid or expired verification code'}), 400
     
     if user.role == 'admin':
         return jsonify({'error': 'Admin accounts cannot be deleted directly'}), 400
 
-    # Execute full external cleanup
+    # Execute full external cleanup (Vector Store, Storage, Supabase Auth)
     _perform_full_user_cleanup(user)
 
-    # Delete the user (cascades handle local DB sessions/messages/docs)
+    # Delete the user from local DB (cascades handle sessions/messages/docs)
     db.session.delete(user)
     db.session.commit()
     
