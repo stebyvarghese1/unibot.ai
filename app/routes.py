@@ -363,15 +363,51 @@ def complete_tour():
     db.session.commit()
     return jsonify({'message': 'Tour completed'})
 
+def _perform_full_user_cleanup(user):
+    """
+    Helper to purge ALL user data from external services (Vector Store, Supabase Storage, Supabase Auth).
+    This is called before deleting the user from our local database.
+    """
+    # 1. Clean up Vector Store (embeddings for user's documents)
+    try:
+        from app.services.vector_store import VectorStore
+        vector_store = VectorStore.get_instance()
+        for doc in user.documents:
+            try:
+                vector_store.remove_document(doc.id)
+            except Exception as e:
+                logging.warning(f"Failed to remove doc {doc.id} from vector store: {e}")
+    except Exception as e:
+        logging.error(f"Vector store cleanup failed: {e}")
+
+    # 2. Clean up Storage & Supabase Auth
+    try:
+        supa = SupabaseService()
+        for doc in user.documents:
+            # Delete primary file
+            if doc.file_path and not str(doc.file_path).startswith(('http://', 'https://')):
+                try: supa.delete_file(doc.file_path)
+                except Exception: pass
+            
+            # Delete auxiliary chunk dump
+            try: supa.delete_file(f"chunks/{doc.id}.json")
+            except Exception: pass
+            
+        # 3. Final purge from Google/Supabase Auth client
+        try:
+            supa.delete_user_by_email(user.email)
+            logging.info(f"Purged {user.email} from external auth client.")
+        except Exception as e:
+            logging.warning(f"Could not purge {user.email} from Supabase Auth: {e}")
+    except Exception as e:
+        logging.error(f"External storage/auth cleanup failed: {e}")
+
 @bp.route('/api/profile', methods=['DELETE'])
 @login_required
 def delete_account():
     data = request.json or {}
     password = data.get('password')
     
-    if not password:
-        return jsonify({'error': 'Password is required for confirmation'}), 400
-
     user = User.query.get(session['user_id'])
     if not user:
         return jsonify({'error': 'User not found'}), 404
@@ -379,53 +415,18 @@ def delete_account():
     # Social accounts (Google) don't have a password_hash. 
     # Only verify password if the user actually has one set.
     if user.password_hash:
+        if not password:
+            return jsonify({'error': 'Password is required for confirmation'}), 400
         if not check_password_hash(user.password_hash, password):
             return jsonify({'error': 'Invalid password. Account deletion aborted.'}), 400
-    else:
-        # For social accounts, since we can't verify password, we just proceed.
-        # The frontend confirmation modal is sufficient for now.
-        pass
-        
-    # If user is admin, you might want to prevent deletion or handle it differently
+    
     if user.role == 'admin':
         return jsonify({'error': 'Admin accounts cannot be deleted directly'}), 400
 
-    # Delete related documents from Vector Store first (since we have the doc IDs)
-    try:
-        from app.services.vector_store import VectorStore
-        vector_store = VectorStore.get_instance()
-        for doc in user.documents:
-            try:
-                vector_store.remove_document(doc.id)
-            except Exception:
-                pass
-    except Exception as e:
-        logging.error(f"Error removing docs from vector store during account delete: {e}")
+    # Execute full external cleanup
+    _perform_full_user_cleanup(user)
 
-    # Delete related files from storage
-    try:
-        supa = SupabaseService()
-        for doc in user.documents:
-            if doc.file_path and not str(doc.file_path).startswith(('http://', 'https://')):
-                try:
-                    supa.delete_file(doc.file_path)
-                except Exception:
-                    pass
-            try:
-                supa.delete_file(f"chunks/{doc.id}.json")
-            except Exception:
-                pass
-        
-        # Finally, delete user from Supabase Auth if they signed up via social/auth
-        try:
-            supa.delete_user_by_email(user.email)
-        except Exception:
-            pass
-            
-    except Exception as e:
-        logging.error(f"Error removing files from storage during account delete: {e}")
-
-    # Now delete the user (cascades will handle DB sessions/messages/docs)
+    # Delete the user (cascades handle local DB sessions/messages/docs)
     db.session.delete(user)
     db.session.commit()
     
@@ -1749,35 +1750,8 @@ def admin_delete_user(user_id):
     if user.role == 'admin' and user.id == session.get('user_id'):
         return jsonify({'error': 'You cannot delete your own admin account'}), 400
 
-    # Clean up Vector Store
-    try:
-        from app.services.vector_store import VectorStore
-        vector_store = VectorStore.get_instance()
-        for doc in user.documents:
-            try:
-                vector_store.remove_document(doc.id)
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-    # Clean up Storage & Supabase Auth
-    try:
-        supa = SupabaseService()
-        for doc in user.documents:
-            if doc.file_path and not str(doc.file_path).startswith(('http://', 'https://')):
-                try: supa.delete_file(doc.file_path)
-                except Exception: pass
-            try: supa.delete_file(f"chunks/{doc.id}.json")
-            except Exception: pass
-            
-        # Delete user from Supabase Auth
-        try:
-            supa.delete_user_by_email(user.email)
-        except Exception:
-            pass
-    except Exception:
-        pass
+    # Execute full external cleanup
+    _perform_full_user_cleanup(user)
 
     db.session.delete(user)
     db.session.commit()
