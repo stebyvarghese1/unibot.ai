@@ -91,7 +91,7 @@ def create_app(config_class=Config):
             
             # 1. Performance Indexes (CRITICAL)
             if 'postgresql' in dialect:
-                print("🚀 Ensuring database indexes for high performance...")
+                print("Ensuring database indexes for high performance...")
                 try:
                     # Index for fast retrieval from document chunks
                     db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON public.document_chunks (document_id)"))
@@ -113,10 +113,10 @@ def create_app(config_class=Config):
                     db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_documents_uploaded_by ON public.documents (uploaded_by)"))
                     
                     db.session.commit()
-                    print("✅ Performance indexes verified")
+                    print("Database indexes verified")
                 except Exception as ex:
                     db.session.rollback()
-                    print(f"⚠️ Indexing warning: {ex}")
+                    print(f"Indexing warning: {ex}")
 
             # 2. Schema Migrations (Conditional to avoid locks)
             if 'sqlite' in dialect:
@@ -141,7 +141,7 @@ def create_app(config_class=Config):
                     db.session.execute(text("ALTER TABLE documents ADD COLUMN structure_json TEXT"))
                 db.session.commit()
             elif 'postgresql' in dialect:
-                print("🔄 Verifying PostgreSQL schema...")
+                print("Verifying PostgreSQL schema...")
                 # Check for column existence first to avoid expensive/blocking ALTER TABLE locks
                 check_sql = text("""
                     SELECT column_name FROM information_schema.columns 
@@ -207,11 +207,11 @@ def create_app(config_class=Config):
                     db.session.execute(text("ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS feedback VARCHAR(20)"))
                     db.session.commit()
                 
-                print("✅ Schema verification complete")
+                print("Schema verification complete")
                 
                 # --- Supabase pgvector Setup (Must happen before vector store init) ---
                 try:
-                    print("🚀 Checking Supabase pgvector extension and tables...")
+                    print("Checking Supabase pgvector extension and tables...")
                     # 1. Enable extension
                     db.session.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))
                     
@@ -265,14 +265,14 @@ def create_app(config_class=Config):
                         pass
                         
                     db.session.commit()
-                    print("✅ Supabase pgvector setup complete")
+                    print("Supabase pgvector setup complete")
                 except Exception as se:
                     db.session.rollback()
-                    print(f"❌ Supabase setup error: {se}")
+                    print(f"Supabase setup error: {se}")
 
         except Exception as e:
             db.session.rollback()
-            print(f"⚠️ Startup maintenance warning: {e}")
+            print(f"Startup maintenance warning: {e}")
             logging.warning(f"Startup maintenance warning: {e}")
 
         admin = User.query.filter_by(email=Config.ADMIN_EMAIL).first()
@@ -281,27 +281,27 @@ def create_app(config_class=Config):
             db.session.commit()
         
         # Register Blueprints
-        print("🔄 Registering blueprints...")
+        print("Registering blueprints...")
         app.register_blueprint(routes.bp)
-        print("✅ Blueprints registered")
+        print("Blueprints registered")
         
         # --- Persistent Vector Store Setup ---
         # With Supabase, we DON'T need to rebuild on every startup as it's persistently stored in the DB.
         # Clearing and rebuilding on startup is slow, expensive (API calls), and can cause data loss.
-        print("🔄 Checking vector store status...")
+        print("Checking vector store status...")
         from app.services.vector_store import VectorStore
         vector_store = VectorStore.get_instance()
         
         try:
             current_stats = vector_store.get_stats()
-            print(f"📊 Vector store stats: {current_stats}")
+            print(f"Vector store stats: {current_stats}")
             if current_stats['total_vectors'] == 0:
-                print("⚠️ WARNING: Vector store is empty! Use Admin panel to sync documents.")
+                print("WARNING: Vector store is empty! Use Admin panel to sync documents.")
                 logging.warning("Vector store is empty on startup.")
             else:
-                print(f"✅ Vector store ready with {current_stats['total_vectors']} vectors")
+                print(f"Vector store ready with {current_stats['total_vectors']} vectors")
         except Exception as e:
-            print(f"⚠️ Vector store check failed: {e}")
+            print(f"Vector store check failed: {e}")
             logging.warning(f"Vector store check failed: {e}")
         
         # Start background workers (Web Source Auto-Refresh) - delayed start to not block app startup
@@ -315,20 +315,20 @@ def create_app(config_class=Config):
                 time.sleep(10)  # Wait 10 seconds for app to fully start
                 try:
                     WebSourceRefresher.start_worker(app)
-                    print("🚀 Web Source Auto-Refresher started.")
+                    print("Web Source Auto-Refresher started.")
                     logging.info("Web Source Auto-Refresher started.")
                 except Exception as e:
-                    print(f"❌ Failed to start WebSourceRefresher: {e}")
+                    print(f"Failed to start WebSourceRefresher: {e}")
                     logging.error(f"❌ Failed to start WebSourceRefresher: {e}")
             
             # Start in background thread
             worker_thread = threading.Thread(target=delayed_worker_start, daemon=True)
             worker_thread.start()
-            print("⏰ Web Source Auto-Refresher scheduled to start in 10 seconds...")
+            print("Web Source Auto-Refresher scheduled to start in 10 seconds...")
             logging.info("Web Source Auto-Refresher scheduled to start in 10 seconds...")
             
         except Exception as e:
-            print(f"❌ Failed to schedule WebSourceRefresher: {e}")
+            print(f"Failed to schedule WebSourceRefresher: {e}")
             logging.error(f"❌ Failed to schedule WebSourceRefresher: {e}")
 
     # Global Rate Limit Error Handler
