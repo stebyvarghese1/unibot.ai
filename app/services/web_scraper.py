@@ -15,6 +15,9 @@ GENERAL_MODE_MAX_PAGES = 25
 GENERAL_MODE_MAX_TOTAL_CHARS = 200_000
 GENERAL_MODE_TIME_CAP = 20
 
+# Global flag to track Playwright status and avoid repeated hangs
+_PLAYWRIGHT_INSTALLED = None
+
 class WebScraper:
     @staticmethod
     def normalize_url(url):
@@ -367,22 +370,31 @@ class WebScraper:
             pages_list = []
             total_chars = 0
             
-            # Try Playwright first
-            try:
-                import importlib
-                pwa = importlib.import_module('playwright.sync_api')
-                with pwa.sync_playwright() as p:
-                    # Added timeout to launch
-                    browser = p.chromium.launch(headless=True, timeout=10000)
-                    context = browser.new_context(ignore_https_errors=True)
-                    page = context.new_page()
-                    page.set_extra_http_headers({
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:109.0) Gecko/20100101 Firefox/115.0'
-                    })
-                    pages_list, total_chars = WebScraper.run_crawl_loop(queue, seen, page, limits['max_pages'], limits['max_chars'], limits['time_cap'])
-                    browser.close()
-            except Exception as e:
-                logging.warning('Playwright crawl failed or not installed, using requests: %s', e)
+            # Try Playwright first if it's potentially available
+            global _PLAYWRIGHT_INSTALLED
+            if _PLAYWRIGHT_INSTALLED is not False:
+                try:
+                    import importlib
+                    pwa = importlib.import_module('playwright.sync_api')
+                    with pwa.sync_playwright() as p:
+                        # Fast check for chromium availability
+                        try:
+                            # Added timeout to launch
+                            browser = p.chromium.launch(headless=True, timeout=8000)
+                            _PLAYWRIGHT_INSTALLED = True
+                            context = browser.new_context(ignore_https_errors=True)
+                            page = context.new_page()
+                            page.set_extra_http_headers({
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                            })
+                            pages_list, total_chars = WebScraper.run_crawl_loop(queue, seen, page, limits['max_pages'], limits['max_chars'], limits['time_cap'])
+                            browser.close()
+                        except Exception as be:
+                            logging.warning('Playwright browser launch failed (likely missing binaries): %s', be)
+                            _PLAYWRIGHT_INSTALLED = False # Don't try again for this process
+                except Exception as e:
+                    logging.warning('Playwright module not found or failed to load: %s', e)
+                    _PLAYWRIGHT_INSTALLED = False
                 
             # If Playwright failed or didn't run, or returned nothing but we have seeds, try requests fallback for what's left
             if not pages_list:
