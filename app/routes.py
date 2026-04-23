@@ -1629,6 +1629,31 @@ def _get_general_index(url):
     # 2. Fallback to real-time scraping if not in DB or DB empty
     logging.info(f"No DB data for {url}, performing real-time scrape...")
     
+    # Trigger background scan if not already processing
+    try:
+        existing_doc = Document.query.filter_by(file_path=url).first()
+        if not existing_doc or existing_doc.status == 'error':
+            import threading
+            def enrich():
+                try:
+                    # Use app.app_context() if we can get the app
+                    from run import app
+                    with app.app_context():
+                        logging.info(f"Starting background enrichment for {url}...")
+                        # This will also create the Document entry if needed
+                        # For now, we'll just crawl and build cache
+                        ok2, pages_list = WebScraper.crawl_website(url, max_pages_override=50, max_chars_override=500_000, time_cap_override=60)
+                        if ok2 and isinstance(pages_list, list) and pages_list:
+                            idx2 = _build_general_index(pages_list)
+                            _GENERAL_INDEX_CACHE[url] = {'ts': time.time(), 'index': idx2}
+                except Exception as ee:
+                    logging.error(f"Background enrich failed for {url}: {ee}")
+            
+            t = threading.Thread(target=enrich, daemon=True)
+            t.start()
+    except Exception as te:
+        logging.warning(f"Could not trigger background scan: {te}")
+
     # Try fetching only the target page for quick response (synchronous)
     ok, soup, text = WebScraper.fetch_one_page(url)
     if not ok or not text or len(text) < 50:
@@ -1655,20 +1680,6 @@ def _get_general_index(url):
             logging.warning('Quick index embedding failed: %s', e)
             
     _GENERAL_INDEX_CACHE[url] = {'ts': now, 'index': index}
-    
-    # Background enrich
-    try:
-        import threading
-        def enrich():
-            # Deeper crawl in background
-            ok2, pages_list = WebScraper.crawl_website(url, max_pages_override=50, max_chars_override=500_000, time_cap_override=60)
-            if ok2 and isinstance(pages_list, list) and pages_list:
-                idx2 = _build_general_index(pages_list)
-                _GENERAL_INDEX_CACHE[url] = {'ts': time.time(), 'index': idx2}
-        t = threading.Thread(target=enrich, daemon=True)
-        t.start()
-    except Exception:
-        pass
     return True, index, None
 
 
