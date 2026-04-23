@@ -10,13 +10,16 @@ class Config:
             raise RuntimeError("SECRET_KEY must be set in production environment")
         SECRET_KEY = 'dev-fallback-key-for-local-use-only'
     _DB_URL = os.getenv('SUPABASE_DB_URL', os.getenv('DATABASE_URL', 'sqlite:///app.db'))
-    if _DB_URL.startswith('postgresql://') and 'supabase.co' in _DB_URL and 'sslmode=' not in _DB_URL:
+    if _DB_URL.startswith('postgresql://') and ('supabase.co' in _DB_URL or 'supabase.com' in _DB_URL) and 'sslmode=' not in _DB_URL:
         _DB_URL = _DB_URL + ('&sslmode=require' if '?' in _DB_URL else '?sslmode=require')
     SQLALCHEMY_DATABASE_URI = _DB_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
-        'pool_recycle': 300
+        'pool_recycle': 280,
+        'pool_size': 10,
+        'max_overflow': 20,
+        'pool_timeout': 30
     }
     
     # Supabase
