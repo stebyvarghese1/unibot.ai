@@ -6,6 +6,7 @@ from app.services.vector_store import VectorStore
 from app.services.ai_service import AIService
 from app.services.supabase_service import SupabaseService
 from app.services.web_scraper import WebScraper
+from app.services.mail_service import MailService
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 import os
@@ -15,6 +16,7 @@ import logging
 import time
 import socket
 import ipaddress
+import random
 from urllib.parse import urlparse, urljoin
 from config import Config
 from sqlalchemy.exc import ProgrammingError
@@ -413,7 +415,7 @@ def delete_otp_request():
         supa = SupabaseService()
         if supa.send_otp(user.email):
             return jsonify({'message': 'A verification code has been sent to your email. Please enter it to confirm deletion.'})
-        return jsonify({'error': 'Failed to send verification code. Please try again.'}), 500
+        return jsonify({'error': 'Failed to send verification code via Supabase. Please try again.'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -422,7 +424,7 @@ def delete_otp_request():
 def delete_account():
     data = request.json or {}
     password = data.get('password')
-    otp = data.get('otp')
+    otp = (data.get('otp') or '').strip()
     
     user = User.query.get(session['user_id'])
     if not user:
@@ -436,7 +438,7 @@ def delete_account():
         if not check_password_hash(user.password_hash, password):
             return jsonify({'error': 'Invalid password. Account deletion aborted.'}), 400
     else:
-        # 2. Social (Google) users MUST use an OTP since they have no local password
+        # 2. Social (Google) users MUST use the OTP sent by Supabase
         if not otp:
             return jsonify({'error': 'Verification code (OTP) is required for social account deletion'}), 400
         
