@@ -21,98 +21,70 @@ class SupabaseService:
         # Prefer runtime overrides from Flask config when available
         supa_url = None
         supa_key = None
-        supa_service_role = None
-        supa_bucket = None
-        try:
-            if current_app:
-                supa_url = (current_app.config.get("SUPABASE_URL") or "").strip()
-                supa_key = (current_app.config.get("SUPABASE_KEY") or "").strip()
-                supa_service_role = (current_app.config.get("SUPABASE_SERVICE_ROLE") or "").strip()
-                supa_bucket = (current_app.config.get("SUPABASE_BUCKET") or "").strip()
-        except Exception:
-            pass
-            
-        if not supa_url:
-            supa_url = Config.SUPABASE_URL
-        if not supa_key:
-            supa_key = Config.SUPABASE_KEY
-        if not supa_service_role:
-            supa_service_role = Config.SUPABASE_SERVICE_ROLE or supa_key
-        if not supa_bucket:
-            supa_bucket = Config.SUPABASE_BUCKET
-            
-        if not supa_url or not supa_key:
-            raise RuntimeError("Supabase configuration missing")
-            
-        self.url = supa_url.rstrip("/")
-        self.key = supa_key
-        self.service_role = supa_service_role or self.key
-        self.bucket = supa_bucket
-        self.base = f"{self.url}/storage/v1/object"
-        self.headers_base = {
-            "Authorization": f"Bearer {self.service_role}",
-            "apikey": self.key,
-        }
         
-        # Official client for DB operations (pgvector)
-        # Reused across all requests
-        self._client = create_client(self.url, self.service_role)
+        try:
+            with current_app.app_context():
+                supa_url = current_app.config.get('SUPABASE_URL')
+                supa_key = current_app.config.get('SUPABASE_SERVICE_ROLE') or current_app.config.get('SUPABASE_KEY')
+        except (RuntimeError, AttributeError):
+            # Fallback to direct config if not in app context
+            supa_url = Config.SUPABASE_URL
+            supa_key = Config.SUPABASE_SERVICE_ROLE or Config.SUPABASE_KEY
+
+        if not supa_url or not supa_key:
+            raise ValueError("SUPABASE_URL and SUPABASE_KEY must be configured")
+
+        self.url = supa_url
+        self.key = supa_key
+        self._client = create_client(supa_url, supa_key)
 
     @property
     def client(self) -> Client:
         return self._client
 
-    def upload_file(self, file_bytes: bytes, path: str, content_type: str = "application/octet-stream") -> str:
-        try:
-            # Use official client storage for better stability
-            self.client.storage.from_(self.bucket).upload(
-                path=path,
-                file=file_bytes,
-                file_options={"content-type": content_type, "x-upsert": "true"}
-            )
-            return path
-        except Exception as e:
-            # Fallback if upload fails (e.g. file already exists despite upsert, or SSL error)
-            logging.error(f"Supabase Storage Upload Error: {e}")
-            raise RuntimeError(f"Storage upload failed: {e}")
+    def upload_file(self, bucket_name: str, path: str, file_data: bytes, content_type: str = None):
+        """Uploads a file to Supabase Storage"""
+        options = {}
+        if content_type:
+            options['content-type'] = content_type
+        
+        # Use upsert=True to allow overwriting files with same name
+        return self.client.storage.from_(bucket_name).upload(
+            path=path,
+            file=file_data,
+            file_options={"content-type": content_type, "upsert": "true"}
+        )
 
-    def download_file(self, path: str) -> bytes:
-        try:
-            # Use official client storage for better stability
-            res = self.client.storage.from_(self.bucket).download(path)
-            return res
-        except Exception as e:
-            logging.error(f"Supabase Storage Download Error: {e}")
-            raise RuntimeError(f"Storage download failed: {e}")
+    def delete_file(self, path: str, bucket_name: str = None):
+        """Deletes a file from Supabase Storage"""
+        if not bucket_name:
+            bucket_name = Config.SUPABASE_BUCKET
+        return self.client.storage.from_(bucket_name).remove([path])
 
-    def get_signed_url(self, path: str, expires_in: int = 3600) -> str:
-        """Generate a short-lived signed URL for private document access (defaults to 1 hour)."""
+    def list_files(self, bucket_name: str, path: str = ""):
+        """Lists files in a storage bucket path"""
+        return self.client.storage.from_(bucket_name).list(path)
+
+    def get_public_url(self, bucket_name: str, path: str):
+        """Gets a public URL for a storage object"""
+        return self.client.storage.from_(bucket_name).get_public_url(path)
+        
+    def get_signed_url(self, bucket_name: str, path: str, expires_in: int = 3600):
+        """
+        Creates a signed URL for a private storage object.
+        Default expiration is 1 hour (3600 seconds).
+        """
         try:
-            res = self.client.storage.from_(self.bucket).create_signed_url(path, expires_in)
+            res = self.client.storage.from_(bucket_name).create_signed_url(path, expires_in)
             if isinstance(res, dict) and 'signedURL' in res:
                 return res['signedURL']
-            return str(res)
+            elif hasattr(res, 'signed_url'):
+                return res.signed_url
+            return None
         except Exception as e:
-            # Fallback to public URL if signed URL generation fails (e.g. bucket doesn't support it)
-            return self.client.storage.from_(self.bucket).get_public_url(path)
-
-    def delete_file(self, path: str):
-        try:
-            self.client.storage.from_(self.bucket).remove([path])
-            return True
-        except Exception as e:
-            logging.warning(f"Storage delete warning (file might not exist): {e}")
-            return False
-
-    def list_files(self, prefix: str = "", limit: int = 100, offset: int = 0):
-        try:
-            res = self.client.storage.from_(self.bucket).list(
-                path=prefix,
-                options={"limit": limit, "offset": offset}
-            )
-            return res
-        except Exception as e:
-            raise RuntimeError(f"Storage list failed: {e}")
+            import logging
+            logging.error(f"Error generating signed URL for {path}: {e}")
+            return None
 
     def delete_user_by_email(self, email: str):
         """
@@ -154,13 +126,13 @@ class SupabaseService:
     def send_otp(self, email: str):
         """Sends an OTP to the user's email using Supabase Auth."""
         try:
-            # Note: sign_in_with_otp sends a code (or link) to the user's email
-            # We don't care if it's for "login", we just need to verify the user owns the email.
+            # This triggers the 'Magic Link' email template in Supabase,
+            # which the user has now configured to show the {{ .Token }} as a numeric code.
             self.client.auth.sign_in_with_otp({"email": email})
             return True
         except Exception as e:
             import logging
-            logging.error(f"Failed to send OTP to {email}: {e}")
+            logging.error(f"Failed to send OTP via Supabase: {e}")
             return False
 
     def verify_otp(self, email: str, token: str):
@@ -168,11 +140,8 @@ class SupabaseService:
         try:
             # type="magiclink" is the default for email-based OTP in Supabase Auth
             res = self.client.auth.verify_otp({"email": email, "token": token, "type": "magiclink"})
-            # If verification is successful, res will contain the session/user
             return res is not None
         except Exception as e:
             import logging
-            logging.error(f"Failed to verify OTP for {email}: {e}")
+            logging.error(f"Failed to verify Supabase OTP: {e}")
             return False
-
-
