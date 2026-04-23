@@ -2116,12 +2116,38 @@ def get_chat_history(session_id):
     uid = session.get('user_id')
     msgs = ChatMessage.query.filter_by(session_id=session_id, user_id=uid).order_by(ChatMessage.created_at.asc()).all()
     
+    # To handle private buckets, we refresh signed URLs for all document sources in history
+    from app.services.supabase_service import SupabaseService
+    from app.models import Document
+    supa = SupabaseService()
+    
+    # Pre-fetch all document paths for this user's messages to avoid N+1
+    doc_ids = set()
+    for m in msgs:
+        if m.sources_json:
+            try:
+                s_list = json.loads(m.sources_json)
+                for s in s_list:
+                    if s.get('doc_id'):
+                        doc_ids.add(int(s['doc_id']))
+            except Exception: continue
+    
+    doc_map = {d.id: d.file_path for d in Document.query.filter(Document.id.in_(list(doc_ids))).all()} if doc_ids else {}
+    
     result = []
     for m in msgs:
         sources = []
         if m.sources_json:
             try:
                 sources = json.loads(m.sources_json)
+                # Refresh URLs for documents
+                for s in sources:
+                    did = s.get('doc_id')
+                    if did and int(did) in doc_map:
+                        try:
+                            s['url'] = supa.get_signed_url(doc_map[int(did)])
+                        except Exception:
+                            pass
             except Exception:
                 sources = []
         
