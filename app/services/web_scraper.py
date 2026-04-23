@@ -151,15 +151,35 @@ class WebScraper:
 
     @staticmethod
     def extract_text_from_html(html, base_url):
-        soup_all = BeautifulSoup(html, 'html.parser')
-        soup = BeautifulSoup(html, 'html.parser')
-        for tag in soup(['script', 'style', 'header', 'footer', 'aside', 'iframe', 'nav']):
+        if not html:
+            return None, ""
+        # Use only one soup instance for performance and memory
+        soup = BeautifulSoup(html, 'lxml' if 'lxml' in sys.modules else 'html.parser')
+        soup_all = soup # Keep reference if needed, but avoid re-parsing
+        
+        # Remove unwanted tags
+        for tag in soup(['script', 'style', 'header', 'footer', 'aside', 'iframe', 'nav', 'noscript', 'svg']):
             tag.decompose()
+            
+        # Extract text from body or whole soup
         body = soup.find('body') or soup
         text = (body.get_text(separator='\n', strip=True) if body else '') or soup.get_text(separator='\n', strip=True)
-        text = '\n'.join(line.strip() for line in text.splitlines() if line.strip())
+        
+        # Clean up lines
+        lines = []
+        for line in text.splitlines():
+            s = line.strip()
+            if s:
+                lines.append(s)
+        text = '\n'.join(lines)
+        
         # Remove NUL characters to prevent database errors
         text = text.replace('\x00', '')
+        
+        # Limit total text length to avoid memory bloat
+        if len(text) > 500000:
+            text = text[:500000] + "... [Content Truncated]"
+            
         return soup_all, text
 
     @staticmethod
@@ -173,13 +193,28 @@ class WebScraper:
                 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             except Exception:
                 pass
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:109.0) Gecko/20100101 Firefox/115.0'}
-            # Add strict timeout to prevent hangs
-            r = requests.get(url, headers=headers, timeout=5, verify=False)
-            r.raise_for_status()
-            r.encoding = r.apparent_encoding or 'utf-8'
-            soup, text = WebScraper.extract_text_from_html(r.text, url)
-            return True, soup, text
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+            # Use stream=True to check content length before downloading everything
+            with requests.get(url, headers=headers, timeout=8, verify=False, stream=True) as r:
+                r.raise_for_status()
+                
+                # Check content length (if available) - limit to 5MB
+                content_length = r.headers.get('Content-Length')
+                if content_length and int(content_length) > 5 * 1024 * 1024:
+                    return False, None, 'Page too large (>5MB)'
+                
+                # Download content in chunks with a cap
+                html_content = ""
+                total_size = 0
+                for chunk in r.iter_content(chunk_size=8192, decode_unicode=True):
+                    if chunk:
+                        html_content += chunk
+                        total_size += len(chunk)
+                        if total_size > 5 * 1024 * 1024: # Hard cap 5MB
+                            break
+                
+                soup, text = WebScraper.extract_text_from_html(html_content, url)
+                return True, soup, text
         except requests.RequestException as e:
             return False, None, str(e)
         except Exception as e:
