@@ -194,9 +194,10 @@ class AIService:
             hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
             hf_fallbacks = [
                 hf_model,
-                "mistralai/Mistral-7B-Instruct-v0.2",
-                "HuggingFaceH4/zephyr-7b-beta",
-                "microsoft/Phi-3-mini-4k-instruct"
+                "meta-llama/Llama-3.2-3B-Instruct",
+                "meta-llama/Llama-3.2-1B-Instruct",
+                "Qwen/Qwen2.5-7B-Instruct",
+                "mistralai/Mistral-7B-Instruct-v0.3"
             ]
 
             for mdl in hf_fallbacks:
@@ -306,9 +307,10 @@ class AIService:
                 fallbacks.append(primary)
             
             robust_models = [
-                "mistralai/Mistral-7B-Instruct-v0.2",
-                "HuggingFaceH4/zephyr-7b-beta",
-                "microsoft/Phi-3-mini-4k-instruct"
+                "meta-llama/Llama-3.2-3B-Instruct",
+                "meta-llama/Llama-3.2-1B-Instruct",
+                "Qwen/Qwen2.5-7B-Instruct",
+                "mistralai/Mistral-7B-Instruct-v0.3"
             ]
             for m in robust_models:
                 if m not in fallbacks:
@@ -354,7 +356,35 @@ class AIService:
                     except Exception as e2:
                         continue
                         
-            logging.error("All fallback models failed for website content.")
+            logging.error("All Hugging Face fallback models failed for website content. Attempting Groq fallback...")
+            
+            # 3. Try Groq (Fallback)
+            try:
+                groq_key = current_app.config.get("GROQ_API_KEY") if current_app else Config.GROQ_API_KEY
+                if groq_key:
+                    from groq import Groq
+                    groq_client = Groq(api_key=groq_key)
+                    model = current_app.config.get("GROQ_LLM_MODEL") if current_app else Config.GROQ_LLM_MODEL
+                    
+                    try_models = [model, "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+                    for m in try_models:
+                        if not m: continue
+                        try:
+                            completion = groq_client.chat.completions.create(
+                                model=m,
+                                messages=messages,
+                                temperature=0.2,
+                                max_tokens=2048
+                            )
+                            out = completion.choices[0].message.content
+                            if out and len(out.strip()) > 0:
+                                return out.strip()
+                        except Exception as ge:
+                            logging.warning(f"Website Groq generation failed with {m}: {ge}")
+                            continue
+            except Exception as e:
+                logging.error(f"Website Groq fallback failed: {e}")
+
             return "This information is not found on the page."
         except Exception as e:
             return f"Error generating answer: {e}"
