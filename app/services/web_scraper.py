@@ -160,8 +160,8 @@ class WebScraper:
         soup = BeautifulSoup(html, 'lxml' if 'lxml' in sys.modules else 'html.parser')
         soup_all = soup # Keep reference if needed, but avoid re-parsing
         
-        # Remove unwanted tags
-        for tag in soup(['script', 'style', 'header', 'footer', 'aside', 'iframe', 'nav', 'noscript', 'svg']):
+        # Remove unwanted tags, but keep noscript as it may contain fallback text
+        for tag in soup(['script', 'style', 'header', 'footer', 'aside', 'iframe', 'nav', 'svg']):
             tag.decompose()
             
         # Extract text from body or whole soup
