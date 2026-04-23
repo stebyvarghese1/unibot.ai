@@ -1568,37 +1568,60 @@ def _get_general_index(url):
     if c and now - c.get('ts', 0) < GENERAL_MODE_CACHE_TTL and c.get('index'):
         return True, c.get('index'), None
 
-    # 1. Try to find pre-scraped chunks in the Database first
+    # 1. Try to find pre-scraped chunks and their embeddings in the Database first
     try:
-        # Search for documents that match this web URL
-        # Filename starts with '[WEB] ' followed by the URL
-        web_docs = Document.query.filter(Document.filename.like(f"[WEB] {url}%")).all()
-        if web_docs:
-            doc_ids = [d.id for d in web_docs]
-            db_chunks = DocumentChunk.query.filter(DocumentChunk.document_id.in_(doc_ids)).all()
-            if db_chunks:
-                logging.info(f"Found {len(db_chunks)} pre-scraped chunks in DB for {url}")
-                pages_list = []
-                # Reconstruct pages_list or just build index directly
-                # For simplicity, we'll treat chunks as a single page or grouped by doc
-                texts_only = [c.chunk_text for c in db_chunks]
+        # 1a. Find the Document associated with this URL
+        doc = Document.query.filter_by(file_path=url).first()
+        if not doc:
+            # Fallback search by filename prefix
+            doc = Document.query.filter(Document.filename.like(f"[WEB] %{url}%")).first()
+            
+        if doc:
+            # 1b. Fetch embeddings directly from the vector store table using doc_id filter
+            # This avoids re-embedding text and is much faster
+            logging.info(f"Fetching pre-calculated embeddings from DB for {url} (Doc ID: {doc.id})")
+            
+            # We use SupabaseService to fetch from 'embeddings' table
+            # Since VectorStore.search doesn't have metadata filtering yet, we use the client directly
+            supabase = SupabaseService()
+            response = supabase.client.table('embeddings').select('embedding, content, metadata').eq('metadata->>doc_id', str(doc.id)).limit(200).execute()
+            
+            if response.data:
                 index = []
-                # Embed chunks in batches
-                for i in range(0, len(texts_only), 32): # Larger batch since DB data is trusted
-                    batch = texts_only[i:i + 32]
-                    try:
-                        embs = AIService.get_embeddings(batch)
-                        for j, vec in enumerate(embs):
-                            idx = i + j
-                            if idx < len(texts_only):
-                                # Try to match back to a URL if stored in metadata (MVP: just use the base url)
-                                index.append((vec, texts_only[idx], url))
-                    except Exception as e:
-                        logging.warning(f"DB chunks embedding failed: {e}")
+                for item in response.data:
+                    emb = item.get('embedding')
+                    text = item.get('content')
+                    src_url = item.get('metadata', {}).get('url', url)
+                    if emb and text:
+                        index.append((emb, text, src_url))
                 
                 if index:
+                    logging.info(f"Successfully loaded {len(index)} embedded chunks from DB for {url}")
                     _GENERAL_INDEX_CACHE[url] = {'ts': now, 'index': index}
                     return True, index, None
+            else:
+                logging.warning(f"No embeddings found in 'embeddings' table for doc_id {doc.id}, falling back to chunks...")
+                
+        # 1c. Legacy Fallback: If no embeddings table records, check DocumentChunk and re-embed (Only if small)
+        db_chunks = DocumentChunk.query.filter_by(document_id=doc.id if doc else -1).limit(50).all()
+        if db_chunks:
+            logging.info(f"Found {len(db_chunks)} chunks in DB for {url}, re-embedding (Legacy fallback)...")
+            texts_only = [c.chunk_text for c in db_chunks]
+            index = []
+            for i in range(0, len(texts_only), 16):
+                batch = texts_only[i:i + 16]
+                try:
+                    embs = AIService.get_embeddings(batch)
+                    for j, vec in enumerate(embs):
+                        idx = i + j
+                        if idx < len(texts_only):
+                            index.append((vec, texts_only[idx], url))
+                except Exception as e:
+                    logging.warning(f"Legacy re-embedding failed: {e}")
+            
+            if index:
+                _GENERAL_INDEX_CACHE[url] = {'ts': now, 'index': index}
+                return True, index, None
 
     except Exception as e:
         logging.error(f"Error checking DB for general index: {e}")
