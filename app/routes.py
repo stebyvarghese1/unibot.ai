@@ -1629,18 +1629,13 @@ def _get_general_index(url):
     # 2. Fallback to real-time scraping if not in DB or DB empty
     logging.info(f"No DB data for {url}, performing real-time scrape...")
     
-    # Try fetching home page first for quick response
+    # Try fetching only the target page for quick response (synchronous)
     ok, soup, text = WebScraper.fetch_one_page(url)
     if not ok or not text or len(text) < 50:
-        # Fallback to crawl if home page empty/failed
-        ok2, pages_list = WebScraper.crawl_website(url, max_pages_override=10, time_cap_override=10)
-        if not ok2:
-            return False, None, pages_list
-        idx2 = _build_general_index(pages_list)
-        _GENERAL_INDEX_CACHE[url] = {'ts': now, 'index': idx2}
-        return True, idx2, None
-
-    # We have text from home page, build quick index
+        # If the page failed, we don't crawl synchronously (prevents timeouts)
+        return False, None, "Website content not yet indexed. I've started a background scan, please try again in a few minutes."
+    
+    # Quick index from the single page
     chunks = DocumentProcessor.chunk_text(text.strip(), chunk_size=GENERAL_MODE_CHUNK_WORDS, overlap=GENERAL_MODE_CHUNK_OVERLAP)
     if len(chunks) > GENERAL_MODE_QUICK_MAX_CHUNKS:
         chunks = chunks[:GENERAL_MODE_QUICK_MAX_CHUNKS]
@@ -2346,6 +2341,20 @@ def query():
                 if not target_urls:
                      return jsonify({'answer': 'General mode is not configured. Please ask the admin to set a website URL in the admin dashboard.', 'sources': []})
                 
+                # Semantic URL Selection (Intelligence Layer)
+                # If multiple URLs are configured, we semantically pick the most relevant ones to avoid timeouts
+                if len(target_urls) > 1:
+                    sources_meta = []
+                    for u in target_urls:
+                        doc = Document.query.filter_by(file_path=u).first()
+                        desc = doc.filename if doc else u
+                        sources_meta.append({'url': u, 'description': desc})
+                    
+                    selected_urls = AIService.select_relevant_sources(question, sources_meta)
+                    if selected_urls:
+                        logging.info(f"Semantically selected {len(selected_urls)} relevant URLs out of {len(target_urls)}")
+                        target_urls = selected_urls
+
                 # Combine indices for all configured URLs
                 all_index = []
                 for url in target_urls:
