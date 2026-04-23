@@ -151,4 +151,28 @@ class SupabaseService:
             logging.error(f"Failed to delete user from Supabase Auth: {e}")
             return False
 
+    def send_otp(self, email: str):
+        """Sends an OTP to the user's email using Supabase Auth."""
+        try:
+            # Note: sign_in_with_otp sends a code (or link) to the user's email
+            # We don't care if it's for "login", we just need to verify the user owns the email.
+            self.client.auth.sign_in_with_otp({"email": email})
+            return True
+        except Exception as e:
+            import logging
+            logging.error(f"Failed to send OTP to {email}: {e}")
+            return False
+
+    def verify_otp(self, email: str, token: str):
+        """Verifies the OTP token for the given email."""
+        try:
+            # type="magiclink" is the default for email-based OTP in Supabase Auth
+            res = self.client.auth.verify_otp({"email": email, "token": token, "type": "magiclink"})
+            # If verification is successful, res will contain the session/user
+            return res is not None
+        except Exception as e:
+            import logging
+            logging.error(f"Failed to verify OTP for {email}: {e}")
+            return False
+
 
