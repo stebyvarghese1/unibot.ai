@@ -120,19 +120,27 @@ class SupabaseService:
         Requires Service Role Key.
         """
         try:
-            # 1. Find user by email
-            # Note: auth.admin.list_users() is available in newer versions of supabase-py
-            # If not, we can use the direct GoTrue API
-            users_res = self.client.auth.admin.list_users()
+            # 1. Find user by email with pagination support
             target_user = None
+            page = 1
+            per_page = 100
             
-            # The response structure might vary slightly depending on version
-            users = getattr(users_res, 'users', users_res if isinstance(users_res, list) else [])
-            
-            for u in users:
-                if u.email.lower() == email.lower():
-                    target_user = u
+            while True:
+                users_res = self.client.auth.admin.list_users(page=page, per_page=per_page)
+                # The response structure might vary slightly depending on version
+                users = getattr(users_res, 'users', users_res if isinstance(users_res, list) else [])
+                
+                if not users:
                     break
+                    
+                for u in users:
+                    if u.email and u.email.lower() == email.lower():
+                        target_user = u
+                        break
+                
+                if target_user or len(users) < per_page:
+                    break
+                page += 1
             
             if target_user:
                 self.client.auth.admin.delete_user(target_user.id)
