@@ -6,7 +6,6 @@ from app.services.vector_store import VectorStore
 from app.services.ai_service import AIService
 from app.services.supabase_service import SupabaseService
 from app.services.web_scraper import WebScraper
-from app.services.mail_service import MailService
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 import os
