@@ -27,27 +27,27 @@ def run_sql(sql_file_or_query):
         if os.path.exists(sql_file_or_query):
             with open(sql_file_or_query, 'r') as f:
                 query = f.read()
-            print(f"📖 Running SQL from file: {sql_file_or_query}")
+            print(f"Running SQL from file: {sql_file_or_query}")
         else:
             query = sql_file_or_query
-            print(f"🚀 Running SQL query...")
+            print(f"Running SQL query...")
             
         cur.execute(query)
         
         if cur.description:
             colnames = [desc[0] for desc in cur.description]
-            print(f"📊 Results ({len(colnames)} columns):")
+            print(f"Results ({len(colnames)} columns):")
             print(" | ".join(colnames))
             rows = cur.fetchall()
             for row in rows:
                 print(" | ".join(map(str, row)))
             print(f"Total rows: {len(rows)}")
         else:
-            print("✅ Query executed successfully (no results).")
+            print("SUCCESS: Query executed successfully (no results).")
             
         cur.close()
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"ERROR: {e}")
     finally:
         if conn:
             conn.close()
