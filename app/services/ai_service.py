@@ -145,7 +145,7 @@ class AIService:
         return all_embeddings
 
     @staticmethod
-    def generate_answer(question, context, history=None, syllabus_context=None, custom_sys_prompt=None, user_preferred_name=None, course_name=None):
+    def generate_answer(question, context, history=None, syllabus_context=None, custom_sys_prompt=None, user_preferred_name=None, course=None, semester=None, subject=None):
         # 1. Base Identity
         base_identity = "You are a sophisticated AI-powered Intelligence Assistant. Your name is Unibot."
         
@@ -158,7 +158,9 @@ class AIService:
                 "Your personality and identity are dynamically defined by the 'Context' provided below.\n\n"
                 "CRITICAL RULES:\n"
                 "1. IDENTITY AWARENESS: Use the provided 'Software Identity' or 'About this Software' information to inform your persona ONLY if the user is asking about your identity, purpose, or creators. For general or academic questions, act as a neutral and professional assistant.\n"
-                f"2. USER PERSONALIZATION: The user you are helping is named '{user_preferred_name or 'the student'}'. If they ask 'who am I' or 'what is my name', you MUST answer with their name. If no name is provided, politely ask them to set their preferred name in the profile settings.\n"
+                f"2. USER PERSONALIZATION: The user you are helping is named '{user_preferred_name or 'the student'}'. " +
+                (f"They are studying {course}, currently in Semester {semester}" + (f" and focusing on {subject}." if subject else ".") if course and semester else "") +
+                " Use this information to create a friendly and personalized rapport. If they ask 'who am I' or 'what is my name', you MUST answer with their name. If no name is provided, politely ask them to set their preferred name in the profile settings.\n"
                 "3. ADAPTIVE ROLE: If the context is purely academic (Syllabus/Courses), act as a precise 'University Academic Advisor'. If the context contains software manuals, act as the 'Official System Interface'.\n"
                 "4. RECOGNIZE INTENT: Match the user's requested depth. If they want a summary, be brief. If they want data (dates, names, fees), be exact and use **bolding**.\n"
                 "5. INTELLIGENT GROUNDING: Use the provided context to answer knowledge-based questions. If the context is empty or irrelevant, you SHOULD use your general knowledge to provide a helpful, polite, and professional response as a university assistant. Do NOT simply say 'I don't know' unless it's a very specific factual question that requires document evidence.\n"
@@ -167,7 +169,7 @@ class AIService:
             )
 
         if syllabus_context:
-            course_label = (course_name or "Academic").upper()
+            course_label = (course or "Academic").upper()
             sys_prompt += (
                 f"\n\nSYLLABUS GROUNDING ({course_label}):\n"
                 f"{syllabus_context}\n"
@@ -258,7 +260,7 @@ class AIService:
         return "The AI service is currently experiencing high load or is temporarily unavailable. Please try again in a moment."
 
     @staticmethod
-    def generate_answer_from_website(question, context, source_url="", history=None, user_preferred_name=None):
+    def generate_answer_from_website(question, context, source_url="", history=None, user_preferred_name=None, course=None, semester=None, subject=None):
         """Answer only from the given website page content. Do not use external knowledge."""
         try:
             try:
@@ -273,7 +275,8 @@ class AIService:
                     "role": "system",
                     "content": (
                         "You are Unibot, a university assistant analyzing webpage content. "
-                        + (f"The user you are helping is named '{user_preferred_name}'. Always address them by this name if they ask who they are." if user_preferred_name else "The user has not provided a name yet.")
+                        + (f"The user you are helping is named '{user_preferred_name}'. " if user_preferred_name else "The user has not provided a name yet. ")
+                        + (f"They are studying {course} (Semester {semester})" + (f", specifically {subject}." if subject else ".") if course and semester else "")
                         + "\n\nUse ONLY the provided webpage text.\n\n"
                         "CORE RULES:\n"
                         "1. ADAPTIVE STYLE: Follow the user's lead. If they request a specific format (e.g., 'give me a summary' or 'list the fees'), prioritize that request.\n"
@@ -400,7 +403,7 @@ class AIService:
         return False
 
     @staticmethod
-    def generate_smalltalk(text: str, user_preferred_name=None):
+    def generate_smalltalk(text: str, user_preferred_name=None, course=None, semester=None, subject=None):
         # Try Hugging Face first (Primary)
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
@@ -409,7 +412,9 @@ class AIService:
             hf_model = current_app.config.get("HF_SMALLTALK_MODEL") if current_app else Config.HF_SMALLTALK_MODEL
             response = hf_client.chat_completion(
                 messages=[
-                    {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + (f"IMPORTANT: The user's name is {user_preferred_name}. You MUST start your response by greeting them by their name (e.g. 'Hello {user_preferred_name}!')" if user_preferred_name else "")},
+                    {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + 
+                     (f"The user is {user_preferred_name}, studying {course} (Semester {semester})" + (f", specifically {subject}." if subject else ".") if user_preferred_name and course and semester else "") +
+                     (f" IMPORTANT: You MUST start your response by greeting the user by their name '{user_preferred_name}' (e.g. 'Hello {user_preferred_name}!')" if user_preferred_name else "")},
                     {"role": "user", "content": text}
                 ],
                 model=hf_model or "google/gemma-2-2b-it",
