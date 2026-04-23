@@ -7,6 +7,7 @@ class User(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
+    supabase_uid = db.Column(db.String(128), unique=True, nullable=True) # ID from Supabase Auth
     password_hash = db.Column(db.String(256), nullable=True)
     role = db.Column(db.String(20), nullable=False, default='student') # 'admin' or 'student'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
