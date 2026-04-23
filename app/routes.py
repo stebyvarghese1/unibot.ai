@@ -284,10 +284,16 @@ def verify_supabase():
             
         # Check if user exists in local DB
         user = User.query.filter_by(email=email).first()
+        supabase_uid = user_data.get('id')
+        
         if not user:
             # Create new user for social login
-            user = User(email=email, role='student', is_active=True)
+            user = User(email=email, supabase_uid=supabase_uid, role='student', is_active=True)
             db.session.add(user)
+            db.session.commit()
+        elif not user.supabase_uid and supabase_uid:
+            # Update existing user with their Supabase ID
+            user.supabase_uid = supabase_uid
             db.session.commit()
             
         if not user.is_active:
@@ -396,10 +402,23 @@ def _perform_full_user_cleanup(user):
             
         # 3. Final purge from Google/Supabase Auth client
         try:
-            supa.delete_user_by_email(user.email)
-            logging.info(f"Purged {user.email} from external auth client.")
+            # Prioritize deletion by UID if we have it, fallback to email lookup
+            success = False
+            if user.supabase_uid:
+                try:
+                    supa.client.auth.admin.delete_user(user.supabase_uid)
+                    success = True
+                    logging.info(f"Purged user {user.email} by UID {user.supabase_uid}.")
+                except Exception as e:
+                    logging.warning(f"UID deletion failed for {user.email}, falling back to email: {e}")
+            
+            if not success:
+                if supa.delete_user_by_email(user.email):
+                    logging.info(f"Purged {user.email} from external auth client via email lookup.")
+                else:
+                    logging.warning(f"Could not find or purge {user.email} from Supabase Auth.")
         except Exception as e:
-            logging.warning(f"Could not purge {user.email} from Supabase Auth: {e}")
+            logging.warning(f"Critical failure during auth purge for {user.email}: {e}")
     except Exception as e:
         logging.error(f"External storage/auth cleanup failed: {e}")
 
