@@ -13,6 +13,52 @@ def approx_tokens(text: str) -> int:
 
 class AIService:
     @staticmethod
+    def select_relevant_sources(question, sources, top_k=3):
+        """
+        Intelligence layer to identify which URLs are most relevant to the question.
+        sources: list of {'url': str, 'description': str}
+        Returns list of relevant URLs.
+        """
+        if not sources or len(sources) <= 1:
+            return [s['url'] for s in sources] if sources else []
+
+        source_descriptions = "\n".join([f"[{i}] {s.get('description', 'Website')} - {s['url']}" for i, s in enumerate(sources)])
+        
+        system_prompt = (
+            "You are a routing agent. Given a user question and a list of available website sources, "
+            "identify the top most relevant sources (max 3) that are likely to contain the answer. "
+            "Return ONLY the indices of the relevant sources as a comma-separated list (e.g., '0, 2'). "
+            "If none are relevant, return 'all'."
+        )
+        
+        user_prompt = f"Question: {question}\n\nSources:\n{source_descriptions}\n\nRelevant Indices:"
+        
+        # Try Groq for fast routing
+        try:
+            groq_key = current_app.config.get("GROQ_API_KEY") if current_app else Config.GROQ_API_KEY
+            if groq_key:
+                groq_client = Groq(api_key=groq_key)
+                completion = groq_client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=0,
+                    max_tokens=20
+                )
+                out = completion.choices[0].message.content.strip().lower()
+                if 'all' in out:
+                    return [s['url'] for s in sources]
+                
+                indices = [int(i.strip()) for i in out.split(',') if i.strip().isdigit()]
+                return [sources[i]['url'] for i in indices if i < len(sources)]
+        except Exception as e:
+            logging.warning(f"Semantic source selection failed: {e}")
+            
+        return [s['url'] for s in sources][:top_k]
+
+    @staticmethod
     def rewrite_query(question, history):
         """Rewrite the user's question to be self-contained based on conversation history."""
         if not history:
