@@ -1578,6 +1578,14 @@ def _get_general_index(url, force_live=False):
                 index = []
                 for item in response.data:
                     emb = item.get('embedding')
+                    # Parse stringified vectors from Supabase
+                    if isinstance(emb, str):
+                        try:
+                            import json as _json
+                            emb = _json.loads(emb)
+                        except Exception:
+                            pass
+                            
                     text = item.get('content')
                     src_url = item.get('metadata', {}).get('url', url)
                     if emb and text:
@@ -1777,9 +1785,21 @@ def _general_retrieve(index, question, top_k=None):
     urls = []
     vecs = []
     for vec, text, url in index:
-        vecs.append(np.array(vec if isinstance(vec, list) else vec, dtype=np.float32))
-        texts.append(text)
-        urls.append(url)
+        # Handle case where vector might be a string (from DB)
+        if isinstance(vec, str):
+            try:
+                import json as _json
+                vec = _json.loads(vec)
+            except Exception:
+                pass
+        
+        try:
+            vecs.append(np.array(vec, dtype=np.float32))
+            texts.append(text)
+            urls.append(url)
+        except Exception as e:
+            logging.warning(f"Skipping invalid vector: {e}")
+            continue
     q_norm = np.linalg.norm(q_vec) + 1e-9
     scores = []
     for v in vecs:
