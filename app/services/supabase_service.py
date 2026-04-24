@@ -42,18 +42,29 @@ class SupabaseService:
     def client(self) -> Client:
         return self._client
 
-    def upload_file(self, bucket_name: str, path: str, file_data: bytes, content_type: str = None):
+    def upload_file(self, file_data: bytes, path: str, bucket_name: str = None, content_type: str = None):
         """Uploads a file to Supabase Storage"""
-        options = {}
-        if content_type:
-            options['content-type'] = content_type
-        
-        # Use upsert=True to allow overwriting files with same name
-        return self.client.storage.from_(bucket_name).upload(
+        if not bucket_name:
+            bucket_name = Config.SUPABASE_BUCKET
+            
+        res = self.client.storage.from_(bucket_name).upload(
             path=path,
             file=file_data,
             file_options={"content-type": content_type, "upsert": "true"}
         )
+        
+        # Return path string for consistency
+        if hasattr(res, 'path'):
+            return res.path
+        if isinstance(res, dict) and 'path' in res:
+            return res['path']
+        return path
+
+    def download_file(self, path: str, bucket_name: str = None):
+        """Downloads a file from Supabase Storage and returns bytes"""
+        if not bucket_name:
+            bucket_name = Config.SUPABASE_BUCKET
+        return self.client.storage.from_(bucket_name).download(path)
 
     def delete_file(self, path: str, bucket_name: str = None):
         """Deletes a file from Supabase Storage"""
@@ -61,19 +72,27 @@ class SupabaseService:
             bucket_name = Config.SUPABASE_BUCKET
         return self.client.storage.from_(bucket_name).remove([path])
 
-    def list_files(self, bucket_name: str, path: str = ""):
+    def list_files(self, path: str = "", bucket_name: str = None, prefix: str = None):
         """Lists files in a storage bucket path"""
-        return self.client.storage.from_(bucket_name).list(path)
+        if not bucket_name:
+            bucket_name = Config.SUPABASE_BUCKET
+        # Support 'prefix' argument used in some parts of the app
+        search_path = path or prefix or ""
+        return self.client.storage.from_(bucket_name).list(search_path)
 
-    def get_public_url(self, bucket_name: str, path: str):
+    def get_public_url(self, path: str, bucket_name: str = None):
         """Gets a public URL for a storage object"""
+        if not bucket_name:
+            bucket_name = Config.SUPABASE_BUCKET
         return self.client.storage.from_(bucket_name).get_public_url(path)
         
-    def get_signed_url(self, bucket_name: str, path: str, expires_in: int = 3600):
+    def get_signed_url(self, path: str, bucket_name: str = None, expires_in: int = 3600):
         """
         Creates a signed URL for a private storage object.
         Default expiration is 1 hour (3600 seconds).
         """
+        if not bucket_name:
+            bucket_name = Config.SUPABASE_BUCKET
         try:
             res = self.client.storage.from_(bucket_name).create_signed_url(path, expires_in)
             if isinstance(res, dict) and 'signedURL' in res:
