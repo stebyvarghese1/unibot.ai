@@ -1019,6 +1019,22 @@
                 }
                 if (subjContainer) subjContainer.style.display = 'none';
                 if (questionInput) questionInput.placeholder = 'Ask anything (General website search)...';
+                
+                // Show Live Search status if enabled
+                fetch('/api/admin/general-website')
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.live) {
+                            const badge = document.createElement('span');
+                            badge.id = 'live-status-badge';
+                            badge.className = 'ml-2 px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase rounded border border-emerald-500/30 animate-pulse';
+                            badge.innerText = 'Live Search Active';
+                            const modeTitle = document.querySelector('.mode-title');
+                            if (modeTitle && !document.getElementById('live-status-badge')) {
+                                modeTitle.appendChild(badge);
+                            }
+                        }
+                    }).catch(() => {});
             }
         }
 
