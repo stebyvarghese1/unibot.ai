@@ -7,7 +7,6 @@ numpy
 huggingface-hub
 requests
 beautifulsoup4
-playwright
 pypdf
 python-docx
 python-pptx
