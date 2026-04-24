@@ -15,8 +15,8 @@ GENERAL_MODE_MAX_PAGES = 25
 GENERAL_MODE_MAX_TOTAL_CHARS = 200_000
 GENERAL_MODE_TIME_CAP = 20
 
-# Global flag to track Playwright status and avoid repeated hangs
-_PLAYWRIGHT_INSTALLED = None
+# Jina Reader is used as a fallback for JS-heavy pages
+_JINA_ENABLED = True
 
 class WebScraper:
     @staticmethod
@@ -224,23 +224,34 @@ class WebScraper:
             return False, None, str(e)
 
     @staticmethod
-    def fetch_one_page_playwright(url, page):
+    def fetch_one_page_jina(url):
+        """Fetch page content using Jina Reader API (perfect for AI/RAG)."""
         try:
-            url = WebScraper.normalize_url(url)
-            if not url:
-                return False, None, 'Invalid URL'
-            page.goto(url, wait_until='domcontentloaded', timeout=15000)
-            html = page.content()
-            soup, text = WebScraper.extract_text_from_html(html, url)
-            return True, soup, text
+            from config import Config
+            headers = {
+                'X-Return-Format': 'markdown',
+                'X-No-Cache': 'true'
+            }
+            if Config.JINA_API_KEY:
+                headers['Authorization'] = f"Bearer {Config.JINA_API_KEY}"
+            
+            # r.jina.ai prepends to the URL to get the clean markdown content
+            jina_url = f"https://r.jina.ai/{url}"
+            response = requests.get(jina_url, headers=headers, timeout=20)
+            response.raise_for_status()
+            
+            text = response.text
+            # Jina returns clean text/markdown, so we don't need soup for extraction, 
+            # but we return None for soup as it's primarily used for link discovery in crawls.
+            return True, None, text
         except Exception as e:
-            logging.warning('Playwright fetch failed for %s: %s', url, e)
+            logging.warning(f"Jina Reader fetch failed for {url}: {e}")
             return False, None, str(e)
 
     @staticmethod
-    def fetch_one_page(url, playwright_page=None):
-        if playwright_page:
-            return WebScraper.fetch_one_page_playwright(url, playwright_page)
+    def fetch_one_page(url, use_jina=False):
+        if use_jina:
+            return WebScraper.fetch_one_page_jina(url)
         return WebScraper.fetch_one_page_requests(url)
 
     @staticmethod
@@ -273,71 +284,63 @@ class WebScraper:
         return out
 
     @staticmethod
-    def run_crawl_loop(queue, seen, playwright_page, max_pages, max_total_chars, time_cap_s):
+    def run_crawl_loop(queue, seen, max_pages, max_total_chars, time_cap_s):
         pages_list = []
         total_chars = 0
         pages_done = 0
         start_time = time.time()
         
         while queue and pages_done < max_pages and total_chars < max_total_chars and (time.time() - start_time) < time_cap_s:
-            if playwright_page:
-                current = queue.popleft()
-                ok, soup, text = WebScraper.fetch_one_page(current, playwright_page=playwright_page)
-                if ok:
-                    if text and len(text) >= 15:
-                        pages_list.append((current, text))
+            batch = []
+            while queue and len(batch) < 8 and pages_done + len(batch) < max_pages:
+                batch.append(queue.popleft())
+            if not batch:
+                break
+            
+            try:
+                def _task(u):
+                    # Try standard requests first
+                    ok, soup, text = WebScraper.fetch_one_page_requests(u)
+                    
+                    # If requests returned very little text, it might be a JS-heavy page
+                    # Try Jina Reader as a fallback for high-potential pages
+                    if ok and (not text or len(text) < 300):
+                        ok_j, _, text_j = WebScraper.fetch_one_page_jina(u)
+                        if ok_j and text_j and len(text_j) > (len(text) if text else 0):
+                            return u, True, None, text_j
+                            
+                    return u, ok, soup, text
+                    
+                with ThreadPoolExecutor(max_workers=6) as ex:
+                    results = list(ex.map(_task, batch))
+                    
+                for u, ok, soup, text in results:
+                    if ok and text and len(text) >= 15:
+                        pages_list.append((u, text))
                         total_chars += len(text)
                         if total_chars > max_total_chars:
                             break
-                    pages_done += 1
                     if soup and pages_done < max_pages:
-                        for link in WebScraper.same_domain_links(soup, current):
+                        for link in WebScraper.same_domain_links(soup, u):
                             if link not in seen:
                                 seen.add(link)
                                 queue.append(link)
-            else:
-                batch = []
-                while queue and len(batch) < 8 and pages_done + len(batch) < max_pages:
-                    batch.append(queue.popleft())
-                if not batch:
-                    break
-                
-                try:
-                    def _task(u):
-                        # Enforce individual page timeout logic in fetch_one_page_requests
-                        ok, soup, text = WebScraper.fetch_one_page_requests(u)
-                        return u, ok, soup, text
-                        
-                    with ThreadPoolExecutor(max_workers=6) as ex:
-                        results = list(ex.map(_task, batch))
-                        
-                    for u, ok, soup, text in results:
-                        if ok and text and len(text) >= 15:
-                            pages_list.append((u, text))
-                            total_chars += len(text)
-                            if total_chars > max_total_chars:
-                                break
-                        if soup and pages_done < max_pages:
-                            for link in WebScraper.same_domain_links(soup, u):
-                                if link not in seen:
-                                    seen.add(link)
-                                    queue.append(link)
-                    pages_done += len(batch)
-                except Exception:
-                    # Fallback to serial if thread pool fails
-                    for u in batch:
-                        ok, soup, text = WebScraper.fetch_one_page_requests(u)
-                        if ok and text and len(text) >= 15:
-                            pages_list.append((u, text))
-                            total_chars += len(text)
-                            if total_chars > max_total_chars:
-                                break
-                        if soup and pages_done < max_pages:
-                            for link in WebScraper.same_domain_links(soup, u):
-                                if link not in seen:
-                                    seen.add(link)
-                                    queue.append(link)
-                    pages_done += len(batch)
+                pages_done += len(batch)
+            except Exception:
+                # Fallback to serial if thread pool fails
+                for u in batch:
+                    ok, soup, text = WebScraper.fetch_one_page_requests(u)
+                    if ok and text and len(text) >= 15:
+                        pages_list.append((u, text))
+                        total_chars += len(text)
+                        if total_chars > max_total_chars:
+                            break
+                    if soup and pages_done < max_pages:
+                        for link in WebScraper.same_domain_links(soup, u):
+                            if link not in seen:
+                                seen.add(link)
+                                queue.append(link)
+                pages_done += len(batch)
                     
         return pages_list, total_chars
 
@@ -370,40 +373,8 @@ class WebScraper:
             pages_list = []
             total_chars = 0
             
-            # Try Playwright first if it's potentially available
-            global _PLAYWRIGHT_INSTALLED
-            if _PLAYWRIGHT_INSTALLED is not False:
-                try:
-                    import importlib
-                    pwa = importlib.import_module('playwright.sync_api')
-                    with pwa.sync_playwright() as p:
-                        # Fast check for chromium availability
-                        try:
-                            # Added timeout to launch
-                            browser = p.chromium.launch(headless=True, timeout=8000)
-                            _PLAYWRIGHT_INSTALLED = True
-                            context = browser.new_context(ignore_https_errors=True)
-                            page = context.new_page()
-                            page.set_extra_http_headers({
-                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                            })
-                            pages_list, total_chars = WebScraper.run_crawl_loop(queue, seen, page, limits['max_pages'], limits['max_chars'], limits['time_cap'])
-                            browser.close()
-                        except Exception as be:
-                            logging.warning('Playwright browser launch failed (likely missing binaries): %s', be)
-                            _PLAYWRIGHT_INSTALLED = False # Don't try again for this process
-                except Exception as e:
-                    logging.warning('Playwright module not found or failed to load: %s', e)
-                    _PLAYWRIGHT_INSTALLED = False
-                
-            # If Playwright failed or didn't run, or returned nothing but we have seeds, try requests fallback for what's left
-            if not pages_list:
-                seen = {url}
-                if seeds:
-                    queue = deque([url] + seeds)
-                else:
-                    queue = deque([url])
-                pages_list, total_chars = WebScraper.run_crawl_loop(queue, seen, None, limits['max_pages'], limits['max_chars'], limits['time_cap'])
+            # Standard crawl loop (Uses Requests with Jina fallback for problematic pages)
+            pages_list, total_chars = WebScraper.run_crawl_loop(queue, seen, limits['max_pages'], limits['max_chars'], limits['time_cap'])
                 
             if not pages_list:
                 return False, 'No text content found on the site'
@@ -510,35 +481,15 @@ class WebScraper:
                     else:
                         failed_or_empty_candidates.append(ou)
 
-            # 4. Playwright Fallback (for stuck/JS pages)
-            # Only pick the top 3 scored candidates that failed with requests to save time
-            suspicious_high_value = [u for u in top if u in failed_or_empty_candidates][:3]
+            # 4. Jina Reader Fallback (for JS-heavy or problematic pages)
+            # Only pick the top 5 scored candidates that failed with requests
+            suspicious_high_value = [u for u in top if u in failed_or_empty_candidates][:5]
             
             if suspicious_high_value:
-                try:
-                    import importlib
-                    pwa = importlib.import_module('playwright.sync_api')
-                    with pwa.sync_playwright() as p:
-                        browser = p.chromium.launch(headless=True, timeout=15000)
-                        context = browser.new_context(ignore_https_errors=True, user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36')
-                        page = context.new_page()
-                        
-                        for u in suspicious_high_value:
-                            try:
-                                # Short page load timeout
-                                page.goto(u, wait_until='domcontentloaded', timeout=10000)
-                                # Wait a sec for hydration
-                                page.wait_for_timeout(1000)
-                                content = page.content()
-                                _, p_text = WebScraper.extract_text_from_html(content, u)
-                                if len(p_text) > 50:
-                                    pages_list.append((u, p_text))
-                            except Exception as e:
-                                logging.warning(f"PW fallback failed for {u}: {e}")
-                                
-                        browser.close()
-                except Exception as e:
-                     logging.warning(f"Playwright fallback unavailable: {e}")
+                for u in suspicious_high_value:
+                    ok_j, _, text_j = WebScraper.fetch_one_page_jina(u)
+                    if ok_j and text_j and len(text_j) > 100:
+                        pages_list.append((u, text_j))
                         
             return True, pages_list
             
