@@ -81,7 +81,13 @@ class WebScraper:
     def fetch_sitemap_urls(base_url):
         try:
             b = WebScraper.normalize_url(base_url).rstrip('/')
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:109.0) Gecko/20100101 Firefox/115.0'}
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Cache-Control': 'max-age=0',
+                'Upgrade-Insecure-Requests': '1'
+            }
             try:
                 import urllib3
                 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -196,7 +202,14 @@ class WebScraper:
                 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             except Exception:
                 pass
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            }
             # Use stream=True to check content length before downloading everything
             with requests.get(url, headers=headers, timeout=8, verify=False, stream=True) as r:
                 r.raise_for_status()
@@ -302,12 +315,14 @@ class WebScraper:
                     # Try standard requests first
                     ok, soup, text = WebScraper.fetch_one_page_requests(u)
                     
-                    # If requests returned very little text, it might be a JS-heavy page
-                    # Try Jina Reader as a fallback for high-potential pages
-                    if ok and (not text or len(text) < 300):
+                    # If requests failed or returned very little text, it might be a JS-heavy or protected page
+                    # Try Jina Reader as a robust fallback
+                    if not ok or not text or len(text) < 350:
                         ok_j, _, text_j = WebScraper.fetch_one_page_jina(u)
-                        if ok_j and text_j and len(text_j) > (len(text) if text else 0):
-                            return u, True, soup, text_j # Keep soup for links!
+                        if ok_j and text_j and (not text or len(text_j) > len(text)):
+                            # If we didn't have soup from requests, we won't find links here, 
+                            # but at least we have the content for this page.
+                            return u, True, soup, text_j
                             
                     return u, ok, soup, text
                     
