@@ -30,8 +30,7 @@ GENERAL_MODE_MAX_CHUNKS = 1000
 GENERAL_MODE_QUICK_MAX_CHUNKS = 50
 GENERAL_MODE_EMBED_BATCH = 8
 GENERAL_MODE_CACHE_TTL = 3600
-GENERAL_MODE_TOP_K = 8
-GENERAL_MODE_SIMILARITY_THRESHOLD = 0.35
+GENERAL_MODE_TOP_K = 5
 
 
 # --- Auth Decorators ---
@@ -1809,13 +1808,8 @@ def _general_retrieve(index, question, top_k=None):
     scores = []
     for v in vecs:
         vn = np.linalg.norm(v) + 1e-9
-        score = float(np.dot(q_vec, v) / (q_norm * vn))
-        scores.append(score)
-        
-    # Filter by threshold and sort
-    top_idx = [i for i in range(len(scores)) if scores[i] >= GENERAL_MODE_SIMILARITY_THRESHOLD]
-    top_idx = sorted(top_idx, key=lambda i: scores[i], reverse=True)[:top_k]
-    
+        scores.append(float(np.dot(q_vec, v) / (q_norm * vn)))
+    top_idx = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
     return [(texts[i], urls[i]) for i in top_idx]
 
 
@@ -2507,19 +2501,27 @@ def query():
                 if is_live:
                     logging.info("Live Search is ENABLED. Will include global results if no target URLs match.")
                 
-                # 2. Gather content from pinned target URLs
+                # 2. Gather content from pinned target URLs (Use Cache/DB first for speed)
                 for url in target_urls:
-                    ok, index, err = _get_general_index(url, force_live=is_live)
+                    ok, index, err = _get_general_index(url, force_live=False)
                     if ok and index:
                         all_index.extend(index)
-                    else:
-                        logging.warning(f"Could not build index for {url}: {err}")
                 
-                # 3. If still no index, or if live is ON, perform a global search
-                if is_live and (not all_index or len(all_index) < 5):
-                    ok_s, s_index, s_err = _perform_web_search(question)
-                    if ok_s and s_index:
-                        all_index.extend(s_index)
+                # 3. If Live Search is enabled AND (index is empty or insufficient), perform real-time targeted fetch or global search
+                if is_live and (not all_index or len(all_index) < 10):
+                    logging.info("Index insufficient and Live Search ON. Triggering targeted fetch/web search.")
+                    
+                    # Targeted fetch for primary URL if results are poor
+                    if target_urls:
+                        ok_t, t_index, t_err = _get_general_index(target_urls[0], force_live=True)
+                        if ok_t and t_index:
+                            all_index.extend(t_index)
+                            
+                    # Global web search fallback
+                    if not all_index or len(all_index) < 5:
+                        ok_s, s_index, s_err = _perform_web_search(question)
+                        if ok_s and s_index:
+                            all_index.extend(s_index)
                     elif not all_index:
                          return jsonify({'answer': 'I could not retrieve any content from the web. Please try again or check your settings.', 'sources': []})
                 
