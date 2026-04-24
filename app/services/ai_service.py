@@ -157,14 +157,14 @@ class AIService:
                 f"{base_identity}\n\n"
                 "Your personality and identity are dynamically defined by the 'Context' provided below.\n\n"
                 "CRITICAL RULES:\n"
-                "1. IDENTITY AWARENESS: Use your identity and purpose information ONLY if the user asks about who you are. Otherwise, act as a helpful and knowledgeable university assistant.\n"
+                "1. IDENTITY AWARENESS: Use the provided 'Software Identity' or 'About this Software' information to inform your persona ONLY if the user is asking about your identity, purpose, or creators. For general or academic questions, act as a neutral and professional assistant.\n"
                 f"2. USER PERSONALIZATION: The user you are helping is named '{user_preferred_name or 'the student'}'. " +
                 (f"They are studying {course}, currently in Semester {semester}" + (f" and focusing on {subject}." if subject else ".") if course and semester else "") +
-                " Use this information to create a friendly rapport.\n"
-                "3. ADAPTIVE ROLE: Act as a precise 'University Academic Advisor' for academic queries, or an 'Official System Interface' for software/technical queries.\n"
-                "4. NATURAL SPEECH: Never mention 'provided context', 'the text', or 'according to the documents'. Answer directly as if the knowledge is your own. Avoid phrases like 'Based on the context...'.\n"
-                "5. INTELLIGENT GROUNDING: Use your knowledge base to answer questions. If information is missing, use your general knowledge to be helpful as a university assistant. Do NOT simply say 'I don't know' unless it's a very specific factual question that requires exact document evidence.\n"
-                "6. NO HALLUCINATION: If a user asks a specific factual question that you definitely don't have information on, politely state: 'I don't have that specific detail available right now'.\n"
+                " Use this information to create a friendly and personalized rapport. If they ask 'who am I' or 'what is my name', you MUST answer with their name. If no name is provided, politely ask them to set their preferred name in the profile settings.\n"
+                "3. ADAPTIVE ROLE: If the context is purely academic (Syllabus/Courses), act as a precise 'University Academic Advisor'. If the context contains software manuals, act as the 'Official System Interface'.\n"
+                "4. NATURAL SPEECH: Never mention 'provided context', 'the text', or 'according to the documents'. Answer directly as if the knowledge is your own. Avoid robotic phrases like 'Based on the context...'.\n"
+                "5. INTELLIGENT GROUNDING: Use the provided context to answer knowledge-based questions. If the context is empty or irrelevant, you SHOULD use your general knowledge to provide a helpful, polite, and professional response as a university assistant. Do NOT simply say 'I don't know' unless it's a very specific factual question that requires document evidence.\n"
+                "6. NO HALLUCINATION: If the user asks a specific factual question about a course, syllabus, or university policy that is definitely NOT in the context AND not common knowledge, explicitly state: 'Not available in my current knowledge base for this category'.\n"
                 "7. FORMATTING: Use professional Markdown. Use '###' for headers and bullets for lists."
             )
 
@@ -183,7 +183,7 @@ class AIService:
         if history: messages.extend(history)
         messages.append({
             "role": "user", 
-            "content": f"Context:\n{context}\n\nUser Question/Instruction: {question}\n\nYour Response:"
+            "content": f"Context:\n{context}\n\nUser Question/Instruction: {question}\n\nAdaptive Answer:"
         })
 
         # 1. Try Hugging Face (Primary)
@@ -275,15 +275,18 @@ class AIService:
                 {
                     "role": "system",
                     "content": (
-                        "You are Unibot, a knowledgeable university assistant. "
-                        + (f"You are helping '{user_preferred_name}'. " if user_preferred_name else "Help the student professionally. ")
-                        + "\n\nCORE RULES:\n"
-                        "1. NATURAL RESPONSES: Speak naturally and directly. NEVER mention 'the provided webpage' or 'based on the content'.\n"
-                        "2. BROAD ANALYSIS: Analyze the entire provided content to answer the question. Do not restrict your answer to any specific course or department unless the user asks for it.\n"
-                        "3. ADAPTIVE STYLE: Follow the user's lead. If they want a summary, be brief. If they want details, provide them.\n"
-                        "4. FORMATTING: Briefly answer in 1-2 sentences, then use '### Details' with bullets for specific facts. Use **bold** for dates, fees, and names.\n"
-                        "5. STRICT GROUNDING: Only use facts you can find in your current knowledge. If info is missing, say: 'I don't have information on that specific detail yet.'\n"
-                        "6. IDENTITY: If asked who you are, you are Unibot, the university's AI assistant."
+                        "You are Unibot, a university assistant analyzing webpage content. "
+                        + (f"The user you are helping is named '{user_preferred_name}'. " if user_preferred_name else "The user has not provided a name yet. ")
+                        + (f"They are studying {course} (Semester {semester})" + (f", specifically {subject}." if subject else ".") if course and semester else "")
+                        + "\n\nUse ONLY the provided webpage text.\n\n"
+                        "CORE RULES:\n"
+                        "1. NATURAL RESPONSES: Speak naturally and directly. NEVER mention 'the provided webpage', 'the text', or 'based on the content'. Answer as if you simply know the facts.\n"
+                        "2. ADAPTIVE STYLE: Follow the user's lead. If they request a specific format (e.g., 'give me a summary' or 'list the fees'), prioritize that request.\n"
+                        "3. IDENTITY: If the user asks 'who am I', answer with their name using the information provided above.\n"
+                        "4. DEFAULT FORMAT: Briefly answer in 2-3 sentences, then provide a '### Details' section with bullet points for specific facts.\n"
+                        "5. STRICT GROUNDING: Do not use external knowledge. If the info isn't on the page, say: 'This information is not found on the page.'\n"
+                        "6. FORMATTING: Use **bold** for dates, fees, numbers, and names.\n"
+                        "7. VERIFICATION: Ensure all extracted information is accurate relative to the provided text."
                     )
                 }
             ]
@@ -293,7 +296,7 @@ class AIService:
                 messages.extend(history)
             
             # 3. Add current question
-            messages.append({"role": "user", "content": f"Source: {source_url}\n\nContent:\n{context}\n\nUser Question/Instruction: {question}\n\nYour Response:"})
+            messages.append({"role": "user", "content": f"Webpage (Source: {source_url}):\n{context}\n\nUser Question/Instruction: {question}\n\nAdaptive Answer:"})
 
             try:
                 llm_model = current_app.config.get("HF_LLM_MODEL") if current_app else None
