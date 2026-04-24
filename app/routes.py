@@ -30,7 +30,8 @@ GENERAL_MODE_MAX_CHUNKS = 1000
 GENERAL_MODE_QUICK_MAX_CHUNKS = 50
 GENERAL_MODE_EMBED_BATCH = 8
 GENERAL_MODE_CACHE_TTL = 3600
-GENERAL_MODE_TOP_K = 5
+GENERAL_MODE_TOP_K = 8
+GENERAL_MODE_SIMILARITY_THRESHOLD = 0.35
 
 
 # --- Auth Decorators ---
@@ -375,6 +376,7 @@ def _perform_full_user_cleanup(user):
     Helper to purge ALL user data from external services (Vector Store, Supabase Storage, Supabase Auth).
     This is called before deleting the user from our local database.
     """
+
     # 1. Clean up Vector Store (embeddings for user's documents)
     try:
         from app.services.vector_store import VectorStore
@@ -1561,8 +1563,11 @@ def _get_general_index(url, force_live=False):
         # 1a. Find the Document associated with this URL
         doc = Document.query.filter_by(file_path=url).first()
         if not doc:
-            # Fallback search by filename prefix
-            doc = Document.query.filter(Document.filename.like(f"[WEB] %{url}%")).first()
+            # Fallback search by exact filename match first
+            doc = Document.query.filter_by(filename=f"[WEB] {url}").first()
+        if not doc:
+            # Last resort: partial match
+            doc = Document.query.filter(Document.filename.like(f"[WEB] %{url}%")).order_by(Document.created_at.desc()).first()
             
         if doc:
             # 1b. Fetch embeddings directly from the vector store table using doc_id filter
@@ -1572,7 +1577,7 @@ def _get_general_index(url, force_live=False):
             # We use SupabaseService to fetch from 'embeddings' table
             # Since VectorStore.search doesn't have metadata filtering yet, we use the client directly
             supabase = SupabaseService()
-            response = supabase.client.table('embeddings').select('embedding, content, metadata').eq('metadata->>doc_id', str(doc.id)).limit(200).execute()
+            response = supabase.client.table('embeddings').select('embedding, content, metadata').eq('metadata->>doc_id', str(doc.id)).limit(500).execute()
             
             if response.data:
                 index = []
@@ -1804,8 +1809,13 @@ def _general_retrieve(index, question, top_k=None):
     scores = []
     for v in vecs:
         vn = np.linalg.norm(v) + 1e-9
-        scores.append(float(np.dot(q_vec, v) / (q_norm * vn)))
-    top_idx = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+        score = float(np.dot(q_vec, v) / (q_norm * vn))
+        scores.append(score)
+        
+    # Filter by threshold and sort
+    top_idx = [i for i in range(len(scores)) if scores[i] >= GENERAL_MODE_SIMILARITY_THRESHOLD]
+    top_idx = sorted(top_idx, key=lambda i: scores[i], reverse=True)[:top_k]
+    
     return [(texts[i], urls[i]) for i in top_idx]
 
 
@@ -2523,8 +2533,8 @@ def query():
                 if not context:
                      return jsonify({'answer': 'I processed the website but found no content relevant to your question.', 'sources': []})
                 
-                # Generate
-                answer = AIService.generate_answer_from_website(question, context, source_url=target_urls[0], history=history, user_preferred_name=pref_name, course=course, semester=semester, subject=subject)
+                # Generate (ignoring study filters for general mode as requested)
+                answer = AIService.generate_answer_from_website(question, context, source_url=target_urls[0] if target_urls else "", history=history, user_preferred_name=pref_name)
                 
                 # Save
                 try:
