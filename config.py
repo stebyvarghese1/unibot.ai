@@ -37,6 +37,7 @@ class Config:
     GROQ_LLM_MODEL = os.getenv('GROQ_LLM_MODEL', 'llama-3.3-70b-versatile')
     GROQ_SMALLTALK_MODEL = os.getenv('GROQ_SMALLTALK_MODEL', 'llama-3.1-8b-instant')
     HF_IMAGE_CAPTION_MODEL = os.getenv('HF_IMAGE_CAPTION_MODEL', 'Salesforce/blip-image-captioning-large')
+    JINA_API_KEY = os.getenv('JINA_API_KEY')
     
     # Uploads (using Supabase storage only, no local storage)
     UPLOAD_FOLDER = '/tmp/uploads'  # Temporary folder that gets cleaned up
