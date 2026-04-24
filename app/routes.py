@@ -1536,17 +1536,25 @@ def _build_general_index(pages_list):
             logging.warning('Embedding batch failed: %s', e)
     return index
 
-def _get_general_index(url):
+def _get_general_index(url, force_live=False):
     """Retrieve or build a vector index for a specific website URL.
     Prioritizes pre-scraped data from the database if available.
     Returns (ok, index, error) where index is a list of (embedding, text, source_url).
     """
     now = time.time()
     
-    # Check cache first
-    c = _GENERAL_INDEX_CACHE.get(url)
-    if c and now - c.get('ts', 0) < GENERAL_MODE_CACHE_TTL and c.get('index'):
-        return True, c.get('index'), None
+    # 0. Check for refresh interval from settings
+    refresh_val = AppSetting.get('general_refresh_interval', 'never')
+    ttl = GENERAL_MODE_CACHE_TTL # Default 5 mins
+    if refresh_val == '1': ttl = 86400 # 1 day
+    elif refresh_val == '7': ttl = 604800 # 1 week
+    elif refresh_val == 'never': ttl = 31536000 # 1 year (effectively)
+    
+    # Check cache first (unless force_live is requested)
+    if not force_live:
+        c = _GENERAL_INDEX_CACHE.get(url)
+        if c and now - c.get('ts', 0) < ttl and c.get('index'):
+            return True, c.get('index'), None
 
     # 1. Try to find pre-scraped chunks and their embeddings in the Database first
     try:
@@ -1671,33 +1679,90 @@ def _get_general_index(url):
     except Exception as te:
         logging.warning(f"Could not trigger background scan: {te}")
 
-    # Try fetching only the target page for quick response (synchronous)
-    ok, soup, text = WebScraper.fetch_one_page(url)
-    if not ok or not text or len(text) < 50:
-        # If the page failed, we don't crawl synchronously (prevents timeouts)
-        return False, None, "Website content not yet indexed. I've started a background scan, please try again in a few minutes."
+    # Try fetching targeted pages for a more comprehensive synchronous response
+    logging.info(f"Performing targeted fetch for {url}...")
+    ok, pages_list = WebScraper.fetch_targeted_pages(url, "Overview and main content", max_pages=12)
     
-    # Quick index from the single page
-    chunks = DocumentProcessor.chunk_text(text.strip(), chunk_size=GENERAL_MODE_CHUNK_WORDS, overlap=GENERAL_MODE_CHUNK_OVERLAP)
-    if len(chunks) > GENERAL_MODE_QUICK_MAX_CHUNKS:
-        chunks = chunks[:GENERAL_MODE_QUICK_MAX_CHUNKS]
-    texts_only = [c for c in chunks if c and c.strip()]
+    if not ok or not pages_list:
+        # Fallback to single page if targeted fetch failed
+        ok, soup, text = WebScraper.fetch_one_page(url)
+        if not ok or not text or len(text) < 50:
+            return False, None, "Website content not yet indexed. I've started a background scan, please try again in a few minutes."
+        pages_list = [(url, text)]
+    
+    # Quick index from the fetched pages
+    all_chunks = []
+    for p_url, p_text in pages_list:
+        p_chunks = DocumentProcessor.chunk_text(p_text.strip(), chunk_size=GENERAL_MODE_CHUNK_WORDS, overlap=GENERAL_MODE_CHUNK_OVERLAP)
+        for c in p_chunks:
+            if c and c.strip():
+                all_chunks.append((c.strip(), p_url))
+    
+    if len(all_chunks) > GENERAL_MODE_QUICK_MAX_CHUNKS:
+        all_chunks = all_chunks[:GENERAL_MODE_QUICK_MAX_CHUNKS]
+    
+    texts_only = [t for t, _ in all_chunks]
     index = []
     
-    # Embed chunks
+    # Embed chunks in batches
     for i in range(0, len(texts_only), GENERAL_MODE_EMBED_BATCH):
         batch = texts_only[i:i + GENERAL_MODE_EMBED_BATCH]
         try:
             embs = AIService.get_embeddings(batch)
             for j, vec in enumerate(embs):
                 idx = i + j
-                if idx < len(texts_only):
-                    index.append((vec, texts_only[idx], url))
+                if idx < len(all_chunks):
+                    text, p_url = all_chunks[idx]
+                    index.append((vec, text, p_url))
         except Exception as e:
             logging.warning('Quick index embedding failed: %s', e)
             
     _GENERAL_INDEX_CACHE[url] = {'ts': now, 'index': index}
     return True, index, None
+
+
+def _perform_web_search(question):
+    """
+    Perform a live web search using Jina Search (s.jina.ai) and build a temporary index.
+    Returns (ok, index, error).
+    """
+    try:
+        logging.info(f"Performing global web search for: {question}")
+        search_url = f"https://s.jina.ai/{question.replace(' ', '+')}"
+        
+        # Use Jina Reader to fetch the search results page
+        # It handles the search and returns a clean markdown of results
+        ok, _, text = WebScraper.fetch_one_page_jina(search_url)
+        
+        if not ok or not text:
+            return False, None, "Could not reach search service."
+            
+        # Parse Jina search results (they are in markdown)
+        # We chunk them and treat them as a single "document" for now
+        # Better: extract individual URLs and fetch them? No, Jina Search usually provides enough context.
+        
+        chunks = DocumentProcessor.chunk_text(text, chunk_size=GENERAL_MODE_CHUNK_WORDS, overlap=GENERAL_MODE_CHUNK_OVERLAP)
+        if len(chunks) > GENERAL_MODE_QUICK_MAX_CHUNKS:
+            chunks = chunks[:GENERAL_MODE_QUICK_MAX_CHUNKS]
+            
+        texts_only = [c for c in chunks if c and c.strip()]
+        index = []
+        
+        for i in range(0, len(texts_only), GENERAL_MODE_EMBED_BATCH):
+            batch = texts_only[i:i + GENERAL_MODE_EMBED_BATCH]
+            try:
+                embs = AIService.get_embeddings(batch)
+                for j, vec in enumerate(embs):
+                    idx = i + j
+                    if idx < len(texts_only):
+                        index.append((vec, texts_only[idx], "https://google.com/search?q=" + question.replace(' ', '+')))
+            except Exception as e:
+                logging.warning('Search index embedding failed: %s', e)
+                
+        return True, index, None
+    except Exception as e:
+        logging.error(f"Web search failed: {e}")
+        return False, None, str(e)
 
 
 def _general_retrieve(index, question, top_k=None):
@@ -1820,6 +1885,41 @@ def set_general_website():
             return jsonify({'message': 'Website and settings saved.'})
     except Exception as e:
         logging.exception('set_general_website failed')
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/api/admin/general-sync', methods=['POST'])
+@admin_required
+def general_sync_all():
+    """Force a background re-sync of all configured general mode URLs."""
+    try:
+        import json as _json
+        import threading
+        urls_raw = AppSetting.get('general_chat_urls') or '[]'
+        urls = _json.loads(urls_raw)
+        
+        if not urls:
+            return jsonify({'message': 'No URLs configured to sync.'}), 400
+            
+        # Clear local cache for these URLs
+        for u in urls:
+            if u in _GENERAL_INDEX_CACHE:
+                del _GENERAL_INDEX_CACHE[u]
+        
+        # Start background sync for each
+        def sync_task():
+            from run import app
+            with app.app_context():
+                for u in urls:
+                    logging.info(f"Manual sync triggered for {u}")
+                    # We can use _get_general_index with force_live=True to trigger the logic
+                    _get_general_index(u, force_live=True)
+                    
+        threading.Thread(target=sync_task, daemon=True).start()
+        
+        return jsonify({'message': f'Sync started for {len(urls)} URLs in background.'})
+    except Exception as e:
+        logging.exception('general_sync_all failed')
         return jsonify({'error': str(e)}), 500
 
 
@@ -2353,6 +2453,10 @@ def query():
             if mode == 'general':
                 from app.models import AppSetting
                 
+                # Get Live Mode setting
+                live_raw = (AppSetting.get('general_live_mode') or '').strip().lower()
+                is_live = live_raw in ('1', 'true', 'yes', 'on')
+                
                 # Get configured URLs (support for single or multiple)
                 urls_raw = AppSetting.get('general_chat_urls')
                 primary_url = AppSetting.get('general_chat_url')
@@ -2365,21 +2469,32 @@ def query():
                         if primary_url: target_urls = [primary_url]
                 elif primary_url:
                     target_urls = [primary_url]
-                
-                if not target_urls:
-                     return jsonify({'answer': 'General mode is not configured. Please ask the admin to set a website URL in the admin dashboard.', 'sources': []})
-                
+
                 # Combine indices for all configured URLs
                 all_index = []
+                
+                # 1. If Live Search is enabled, we can perform a global search if needed
+                if is_live:
+                    logging.info("Live Search is ENABLED. Will include global results if no target URLs match.")
+                
+                # 2. Gather content from pinned target URLs
                 for url in target_urls:
-                    ok, index, err = _get_general_index(url)
+                    ok, index, err = _get_general_index(url, force_live=is_live)
                     if ok and index:
                         all_index.extend(index)
                     else:
                         logging.warning(f"Could not build index for {url}: {err}")
                 
+                # 3. If still no index, or if live is ON, perform a global search
+                if is_live and (not all_index or len(all_index) < 5):
+                    ok_s, s_index, s_err = _perform_web_search(question)
+                    if ok_s and s_index:
+                        all_index.extend(s_index)
+                    elif not all_index:
+                         return jsonify({'answer': 'I could not retrieve any content from the web. Please try again or check your settings.', 'sources': []})
+                
                 if not all_index:
-                     return jsonify({'answer': 'I could not retrieve any content from the configured website(s). Please check if the URL is correct and accessible.', 'sources': []})
+                     return jsonify({'answer': 'General mode is not configured. Please ask the admin to set a website URL in the admin dashboard.', 'sources': []})
                 
                 # Retrieve from combined index
                 retrieved = _general_retrieve(all_index, question)
