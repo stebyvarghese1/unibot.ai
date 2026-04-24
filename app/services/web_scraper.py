@@ -307,7 +307,7 @@ class WebScraper:
                     if ok and (not text or len(text) < 300):
                         ok_j, _, text_j = WebScraper.fetch_one_page_jina(u)
                         if ok_j and text_j and len(text_j) > (len(text) if text else 0):
-                            return u, True, None, text_j
+                            return u, True, soup, text_j # Keep soup for links!
                             
                     return u, ok, soup, text
                     
