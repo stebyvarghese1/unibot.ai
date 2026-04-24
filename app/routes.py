@@ -1205,26 +1205,35 @@ def _fetch_one_page_requests(url):
         return False, None, str(e)
 
 
-def _fetch_one_page_playwright(url, page):
-    """Fetch one URL with Playwright (renders JS). page is a Playwright page. Returns (True, soup, text) or (False, None, error_message)."""
+def _fetch_one_page_jina(url):
+    """Fetch page content using Jina Reader API (perfect for AI/RAG)."""
     try:
-        from bs4 import BeautifulSoup
-        url = _normalize_website_url(url)
-        if not url:
-            return False, None, 'Invalid URL'
-        page.goto(url, wait_until='domcontentloaded', timeout=15000)
-        html = page.content()
-        soup, text = _extract_text_from_html(html, url)
-        return True, soup, text
+        from config import Config
+        headers = {
+            'X-Return-Format': 'markdown',
+            'X-No-Cache': 'true'
+        }
+        if Config.JINA_API_KEY:
+            headers['Authorization'] = f"Bearer {Config.JINA_API_KEY}"
+        
+        # r.jina.ai prepends to the URL to get the clean markdown content
+        jina_url = f"https://r.jina.ai/{url}"
+        response = requests.get(jina_url, headers=headers, timeout=20)
+        response.raise_for_status()
+        
+        text = response.text
+        # Jina returns clean text/markdown, so we don't need soup for extraction, 
+        # but we return None for soup as it's primarily used for link discovery in crawls.
+        return True, None, text
     except Exception as e:
-        logging.warning('Playwright fetch failed for %s: %s', url, e)
+        logging.warning(f"Jina Reader fetch failed for {url}: {e}")
         return False, None, str(e)
 
 
-def _fetch_one_page(url, playwright_page=None):
-    """Fetch one URL; use Playwright if page given, else requests. Returns (True, soup, text) or (False, None, error_message)."""
-    if playwright_page:
-        return _fetch_one_page_playwright(url, playwright_page)
+def _fetch_one_page(url, use_jina=False):
+    """Fetch one URL; use Jina Reader if specified, else requests. Returns (True, soup, text) or (False, None, error_message)."""
+    if use_jina:
+        return _fetch_one_page_jina(url)
     return _fetch_one_page_requests(url)
 
 
@@ -1296,73 +1305,64 @@ def _same_domain_links(soup, base_url):
     return out
 
 
-def _run_crawl_loop(queue, seen, playwright_page, max_pages, max_total_chars, time_cap_s):
-    """One BFS crawl loop. Fills pages_list and total_chars; mutates queue and seen."""
-    from collections import deque
+def _run_crawl_loop(queue, seen, max_pages, max_total_chars, time_cap_s):
+    from concurrent.futures import ThreadPoolExecutor
     pages_list = []
     total_chars = 0
     pages_done = 0
     start_time = time.time()
+    
     while queue and pages_done < max_pages and total_chars < max_total_chars and (time.time() - start_time) < time_cap_s:
-        if playwright_page:
-            current = queue.popleft()
-            ok, soup, text = _fetch_one_page(current, playwright_page=playwright_page)
-            if ok:
-                if text and len(text) >= 15:
-                    pages_list.append((current, text))
+        batch = []
+        while queue and len(batch) < 8 and pages_done + len(batch) < max_pages:
+            batch.append(queue.popleft())
+        if not batch:
+            break
+        
+        try:
+            def _task(u):
+                ok, soup, text = _fetch_one_page_requests(u)
+                if ok and (not text or len(text) < 300):
+                    ok_j, _, text_j = _fetch_one_page_jina(u)
+                    if ok_j and text_j and len(text_j) > (len(text) if text else 0):
+                        return u, True, None, text_j
+                return u, ok, soup, text
+                
+            with ThreadPoolExecutor(max_workers=6) as ex:
+                results = list(ex.map(_task, batch))
+                
+            for u, ok, soup, text in results:
+                if ok and text and len(text) >= 15:
+                    pages_list.append((u, text))
                     total_chars += len(text)
                     if total_chars > max_total_chars:
                         break
-                pages_done += 1
                 if soup and pages_done < max_pages:
-                    for link in _same_domain_links(soup, current):
+                    for link in _same_domain_links(soup, u):
                         if link not in seen:
                             seen.add(link)
                             queue.append(link)
-        else:
-            batch = []
-            while queue and len(batch) < 8 and pages_done + len(batch) < max_pages:
-                batch.append(queue.popleft())
-            if not batch:
-                break
-            try:
-                from concurrent.futures import ThreadPoolExecutor
-                def _task(u):
-                    ok, soup, text = _fetch_one_page_requests(u)
-                    return u, ok, soup, text
-                with ThreadPoolExecutor(max_workers=6) as ex:
-                    results = list(ex.map(_task, batch))
-                for u, ok, soup, text in results:
-                    if ok and text and len(text) >= 15:
-                        pages_list.append((u, text))
-                        total_chars += len(text)
-                        if total_chars > max_total_chars:
-                            break
-                    if soup and pages_done < max_pages:
-                        for link in _same_domain_links(soup, u):
-                            if link not in seen:
-                                seen.add(link)
-                                queue.append(link)
-                pages_done += len(batch)
-            except Exception:
-                for u in batch:
-                    ok, soup, text = _fetch_one_page_requests(u)
-                    if ok and text and len(text) >= 15:
-                        pages_list.append((u, text))
-                        total_chars += len(text)
-                        if total_chars > max_total_chars:
-                            break
-                    if soup and pages_done < max_pages:
-                        for link in _same_domain_links(soup, u):
-                            if link not in seen:
-                                seen.add(link)
-                                queue.append(link)
-                pages_done += len(batch)
+            pages_done += len(batch)
+        except Exception:
+            for u in batch:
+                ok, soup, text = _fetch_one_page_requests(u)
+                if ok and text and len(text) >= 15:
+                    pages_list.append((u, text))
+                    total_chars += len(text)
+                    if total_chars > max_total_chars:
+                        break
+                if soup and pages_done < max_pages:
+                    for link in _same_domain_links(soup, u):
+                        if link not in seen:
+                            seen.add(link)
+                            queue.append(link)
+            pages_done += len(batch)
+                
     return pages_list, total_chars
 
 
 def _fetch_website_pages(url, max_pages_override=None, max_chars_override=None, time_cap_override=None):
-    """Recursively crawl same-domain site (BFS). Use Playwright for JS rendering when available.
+    """Recursively crawl same-domain site (BFS). Use Jina Reader as fallback.
     Returns (True, [(url, text), ...]) or (False, error_message)."""
     try:
         from collections import deque
@@ -1387,41 +1387,7 @@ def _fetch_website_pages(url, max_pages_override=None, max_chars_override=None, 
             queue = deque([url])
         pages_list = []
         total_chars = 0
-        # Try Playwright first if it's potentially available
-        global _PLAYWRIGHT_INSTALLED
-        if _PLAYWRIGHT_INSTALLED is not False:
-            try:
-                import importlib
-                pwa = importlib.import_module('playwright.sync_api')
-                try:
-                    with pwa.sync_playwright() as p:
-                        try:
-                            # Added timeout to launch
-                            browser = p.chromium.launch(headless=True, timeout=8000)
-                            _PLAYWRIGHT_INSTALLED = True
-                            context = browser.new_context(ignore_https_errors=True)
-                            page = context.new_page()
-                            page.set_extra_http_headers({
-                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                            })
-                            pages_list, total_chars = WebScraper.run_crawl_loop(queue, seen, page, limits['max_pages'], limits['max_chars'], limits['time_cap'])
-                            browser.close()
-                        except Exception as be:
-                            logging.warning('Playwright browser launch failed (likely missing binaries): %s', be)
-                            _PLAYWRIGHT_INSTALLED = False # Don't try again for this process
-                except Exception as ce:
-                        logging.warning('Playwright sync_api initialization failed: %s', ce)
-                        _PLAYWRIGHT_INSTALLED = False
-            except Exception as e:
-                logging.warning('Playwright module not found: %s', e)
-                _PLAYWRIGHT_INSTALLED = False
-        if not pages_list:
-            seen = {url}
-            if seeds:
-                queue = deque([url] + seeds)
-            else:
-                queue = deque([url])
-            pages_list, total_chars = _run_crawl_loop(queue, seen, None, limits['max_pages'], limits['max_chars'], limits['time_cap'])
+        pages_list, total_chars = _run_crawl_loop(queue, seen, limits['max_pages'], limits['max_chars'], limits['time_cap'])
         if not pages_list:
             return False, 'No text content found on the site'
         logging.info('General mode crawl: %d pages, %d chars', len(pages_list), total_chars)
