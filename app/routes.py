@@ -906,6 +906,8 @@ def sync_status_route():
 @bp.route('/api/admin/sync-storage', methods=['POST'])
 @admin_required
 def sync_storage_route():
+    if sync_progress['is_running']:
+        return jsonify({'error': 'A sync operation is already in progress.'}), 409
     try:
         import threading
         # Ensure 'current_app' can be used safely in thread
