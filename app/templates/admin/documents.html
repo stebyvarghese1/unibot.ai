@@ -390,12 +390,8 @@
     const systemTbody = document.getElementById('system-doc-list');
     const systemContainer = document.getElementById('system-docs-container');
     const emptyState = document.getElementById('empty-state');
-    const search = document.getElementById('search-filter').value.toLowerCase();
-    const course = document.getElementById('course-filter').value;
-    const sem = document.getElementById('sem-filter').value;
-    const subj = document.getElementById('subj-filter') ? document.getElementById('subj-filter').value : '';
 
-    // Separate System Docs
+    // Separate System Docs (Note: If we want true server-side system docs we'd filter that too, but for now we filter locally)
     const systemDocs = allDocs.filter(d => d.doc_type === 'system_info');
     const syllabusDocs = allDocs.filter(d => d.doc_type !== 'system_info');
 
@@ -432,24 +428,12 @@
       }
     }
 
-    // 2. Render Syllabus Docs (Main Table)
-    const filtered = syllabusDocs.filter(doc => {
-      // Don't show web sources in the general documents tab
-      if (doc.filename.startsWith('[WEB] ')) return false;
-
-      const matchesSearch = doc.filename.toLowerCase().includes(search);
-      const matchesCourse = !course || doc.course === course;
-      const matchesSem = !sem || doc.semester === sem;
-      const matchesSubj = !subj || doc.subject === subj;
-      return matchesSearch && matchesCourse && matchesSem && matchesSubj;
-    });
-
     tbody.innerHTML = '';
-    if (filtered.length === 0) {
+    if (syllabusDocs.length === 0) {
       emptyState.classList.remove('hidden');
     } else {
       emptyState.classList.add('hidden');
-      filtered.forEach(doc => {
+      syllabusDocs.forEach(doc => {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-800/40 transition-colors group';
         let statusClass = 'bg-slate-800 text-slate-400 border border-slate-700';
