@@ -131,7 +131,7 @@
         <p class="text-[11px] font-medium text-slate-400 mb-8 flex-grow">Manage the hierarchy of courses, semesters, and
           subjects.</p>
         <div class="mt-auto">
-          <button id="manage-filters-btn"
+          <button id="manage-filters-btn" onclick="openFilterModal()"
             class="w-full py-4 bg-purple-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-purple-900/40 hover:bg-purple-700 transition-all">
             Orchestrate
           </button>
@@ -606,12 +606,14 @@
   });
 
   function openFilterModal() {
-    document.getElementById('filter-modal').classList.remove('hidden');
+    const modal = document.getElementById('filter-modal');
+    if (modal) modal.classList.remove('hidden');
     loadFilterOptions();
   }
 
   function closeFilterModal() {
-    document.getElementById('filter-modal').classList.add('hidden');
+    const modal = document.getElementById('filter-modal');
+    if (modal) modal.classList.add('hidden');
   }
 
   function toggleAddArea(type) {
@@ -620,20 +622,37 @@
   }
 
   async function loadFilterOptions() {
+    const loader = document.getElementById('knowledge-map-loader');
+    if (loader) loader.classList.remove('hidden');
+
     try {
       const res = await fetch('/api/admin/filter-options');
+      if (!res.ok) throw new Error('API unreachable');
+      
       const data = await res.json();
       allFilters = data.all || [];
       renderManageLists();
       
       // Update global stats
       const subCount = allFilters.filter(x => x.category === 'subject').length;
-      // Fetch actual stats for deep analytics
       const statsRes = await fetch('/api/admin/stats');
       const statsData = await statsRes.json();
-      if(document.getElementById('stats-docs')) document.getElementById('stats-docs').innerText = statsData.documents || 0;
-      if(document.getElementById('stats-intel')) document.getElementById('stats-intel').innerText = subCount;
-    } catch (e) { console.error('Load failed', e); }
+      
+      const docsEl = document.getElementById('stats-docs');
+      const intelEl = document.getElementById('stats-intel');
+      if(docsEl) docsEl.innerText = statsData.documents || 0;
+      if(intelEl) intelEl.innerText = subCount;
+      
+    } catch (e) { 
+      console.error('Load failed', e);
+      const status = document.getElementById('knowledge-map-status');
+      if (status) {
+          status.innerText = 'Sync Failed. Click to retry.';
+          status.onclick = loadFilterOptions;
+      }
+    } finally {
+      if (loader) loader.classList.add('hidden');
+    }
   }
 
   function renderManageLists() {
@@ -641,18 +660,18 @@
     renderSemesterList();
     renderSubjectList();
 
-    // Col Visibility
+    // Column visibility logic
     const colSem = document.getElementById('col-semester');
     const colSub = document.getElementById('col-subject');
     const subHint = document.getElementById('subject-empty-hint');
 
     if (colSem) {
-        colSem.classList.toggle('opacity-30', !selectedCourseId);
-        colSem.classList.toggle('pointer-events-none', !selectedCourseId);
+        colSem.style.opacity = selectedCourseId ? '1' : '0.3';
+        colSem.style.pointerEvents = selectedCourseId ? 'auto' : 'none';
     }
     if (colSub) {
-        colSub.classList.toggle('opacity-30', !selectedSemesterId);
-        colSub.classList.toggle('pointer-events-none', !selectedSemesterId);
+        colSub.style.opacity = selectedSemesterId ? '1' : '0.3';
+        colSub.style.pointerEvents = selectedSemesterId ? 'auto' : 'none';
         if (subHint) subHint.classList.toggle('hidden', !!selectedSemesterId);
     }
   }
@@ -660,8 +679,10 @@
   function renderCourseList() {
     const list = document.getElementById('list-course');
     if (!list) return;
-    list.innerHTML = '';
+    
+    const fragment = document.createDocumentFragment();
     const items = allFilters.filter(f => f.category === 'course').sort((a,b)=>a.value.localeCompare(b.value));
+    
     items.forEach(item => {
       const active = item.id === selectedCourseId;
       const li = document.createElement('li');
@@ -669,10 +690,13 @@
       li.onclick = () => selectCourse(item.id);
       li.innerHTML = `
         <span class="text-[10px] font-black uppercase tracking-widest ${active ? 'text-indigo-400' : 'text-slate-500'} group-hover:text-white">${item.value}</span>
-        <button onclick="deleteFilter(${item.id}, this)" class="p-1.5 opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-all"><i class="fa-solid fa-trash text-[8px]"></i></button>
+        <button onclick="deleteFilter(${item.id}, event)" class="p-1.5 opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-all"><i class="fa-solid fa-trash text-[8px]"></i></button>
       `;
-      list.appendChild(li);
+      fragment.appendChild(li);
     });
+    
+    list.innerHTML = '';
+    list.appendChild(fragment);
   }
 
   function renderSemesterList() {
@@ -680,7 +704,10 @@
     if (!list) return;
     list.innerHTML = '';
     if (!selectedCourseId) return;
+
+    const fragment = document.createDocumentFragment();
     const items = allFilters.filter(f => f.category === 'semester' && f.parent_id === selectedCourseId).sort((a,b)=>a.value.localeCompare(b.value));
+    
     items.forEach(item => {
       const active = item.id === selectedSemesterId;
       const li = document.createElement('li');
@@ -688,10 +715,12 @@
       li.onclick = () => selectSemester(item.id);
       li.innerHTML = `
         <span class="text-[10px] font-black uppercase tracking-widest ${active ? 'text-violet-400' : 'text-slate-500'} group-hover:text-white">${item.value}</span>
-        <button onclick="deleteFilter(${item.id}, this)" class="p-1.5 opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-all"><i class="fa-solid fa-trash text-[8px]"></i></button>
+        <button onclick="deleteFilter(${item.id}, event)" class="p-1.5 opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-all"><i class="fa-solid fa-trash text-[8px]"></i></button>
       `;
-      list.appendChild(li);
+      fragment.appendChild(li);
     });
+    
+    list.appendChild(fragment);
   }
 
   function renderSubjectList() {
@@ -699,20 +728,26 @@
     if (!list) return;
     list.innerHTML = '';
     if (!selectedSemesterId) return;
+
+    const fragment = document.createDocumentFragment();
     const items = allFilters.filter(f => f.category === 'subject' && f.parent_id === selectedSemesterId).sort((a,b)=>a.value.localeCompare(b.value));
+    
     items.forEach(item => {
       const li = document.createElement('li');
       li.className = `group flex justify-between items-center px-4 py-3 rounded-xl border bg-slate-900/50 border-white/5 hover:border-emerald-500/30 transition-all cursor-pointer`;
       li.onclick = () => loadSyllabusIntelligence(item.id, item.value);
       li.innerHTML = `
         <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-emerald-400">${item.value}</span>
-        <button onclick="deleteFilter(${item.id}, this)" class="p-1.5 opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-all"><i class="fa-solid fa-trash text-[8px]"></i></button>
+        <button onclick="deleteFilter(${item.id}, event)" class="p-1.5 opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-all"><i class="fa-solid fa-trash text-[8px]"></i></button>
       `;
-      list.appendChild(li);
+      fragment.appendChild(li);
     });
+    
+    list.appendChild(fragment);
   }
 
   function selectCourse(id) {
+    if (selectedCourseId === id) return;
     selectedCourseId = id;
     selectedSemesterId = null;
     renderManageLists();
@@ -720,23 +755,7 @@
   }
 
   function selectSemester(id) {
-    selectedSemesterId = id;
-    renderManageLists();
-    resetDetailView();
-  }
-
-  function selectSubject(id, val) {
-      loadSyllabusIntelligence(id, val);
-  }
-
-  function selectCourse(id) {
-    selectedCourseId = id;
-    selectedSemesterId = null;
-    renderManageLists();
-    resetDetailView();
-  }
-
-  function selectSemester(id) {
+    if (selectedSemesterId === id) return;
     selectedSemesterId = id;
     renderManageLists();
     resetDetailView();
