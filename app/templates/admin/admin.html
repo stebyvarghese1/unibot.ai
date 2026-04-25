@@ -222,7 +222,8 @@
     });
   }
 
-  setupAction('rebuild-btn', 'rebuild-status', '/api/admin/rebuild-index');
+  // Rebuild listener is handled below with enhanced polling logic
+  // setupAction('rebuild-btn', 'rebuild-status', '/api/admin/rebuild-index');
   
   // Enhanced Rebuild Handler with Polling
   const rebuildBtn = document.getElementById('rebuild-btn');
