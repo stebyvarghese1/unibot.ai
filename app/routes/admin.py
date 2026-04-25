@@ -89,8 +89,22 @@ def handle_filter_options():
                 from app.services.supabase_service import SupabaseService
                 from app.services.document_processor import DocumentProcessor
                 from app.models import Document
+                import os
                 
-                file_path = SupabaseService.upload_file(file)
+                # Correctly instantiate service and prepare file data
+                supa = SupabaseService()
+                file_bytes = file.read()
+                file.seek(0) # Reset pointer for safety
+                
+                # Generate a unique path in Supabase storage
+                storage_path = f"syllabus/{int(time.time())}_{file.filename}"
+                
+                file_path = supa.upload_file(
+                    file_data=file_bytes, 
+                    path=storage_path, 
+                    content_type=file.content_type
+                )
+                
                 new_doc = Document(
                     filename=file.filename,
                     file_path=file_path,
