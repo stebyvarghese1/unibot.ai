@@ -113,9 +113,21 @@ def rebuild_index():
 @admin_required
 def list_documents():
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    search = request.args.get('search', '').strip()
+    course = request.args.get('course', '')
+    semester = request.args.get('semester', '')
     
-    pagination = Document.query.order_by(Document.upload_date.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    query = Document.query
+    
+    if search:
+        query = query.filter(Document.filename.ilike(f"%{search}%"))
+    if course:
+        query = query.filter(Document.course == course)
+    if semester:
+        query = query.filter(Document.semester == semester)
+        
+    pagination = query.order_by(Document.upload_date.desc()).paginate(page=page, per_page=per_page, error_out=False)
     
     return jsonify({
         'items': [d.to_dict() for d in pagination.items],
@@ -128,9 +140,14 @@ def list_documents():
 @admin_required
 def list_users():
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    search = request.args.get('search', '').strip()
     
-    pagination = User.query.order_by(User.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    query = User.query
+    if search:
+        query = query.filter(User.email.ilike(f"%{search}%"))
+    
+    pagination = query.order_by(User.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     
     return jsonify({
         'items': [u.to_dict() for u in pagination.items],
