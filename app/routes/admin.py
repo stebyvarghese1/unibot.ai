@@ -108,6 +108,48 @@ def list_users():
     users = User.query.all()
     return jsonify([u.to_dict() for u in users])
 
+@admin_bp.route('/api/admin/chunks', methods=['GET'])
+@admin_required
+def list_chunks():
+    doc_id = request.args.get('document_id')
+    query = db.session.query(DocumentChunk, Document).join(Document)
+    
+    if doc_id:
+        query = query.filter(DocumentChunk.document_id == doc_id)
+        
+    chunks = query.order_by(DocumentChunk.id.desc()).limit(1000).all() # Limit for performance
+    
+    result = []
+    for chunk, doc in chunks:
+        result.append({
+            'id': chunk.id,
+            'document_id': chunk.document_id,
+            'document_filename': doc.filename,
+            'chunk_text': chunk.chunk_text[:100] + "...",
+            'full_text': chunk.chunk_text,
+            'chunk_index': chunk.chunk_index,
+            'is_web': doc.filename.startswith('[WEB] ') if doc.filename else False
+        })
+    return jsonify(result)
+
+@admin_bp.route('/api/admin/chunks/<int:chunk_id>', methods=['DELETE'])
+@admin_required
+def delete_chunk(chunk_id):
+    chunk = DocumentChunk.query.get(chunk_id)
+    if not chunk:
+        return jsonify({'error': 'Chunk not found'}), 404
+    
+    try:
+        # Note: We don't explicitly remove from vector store here 
+        # as it's complex to remove single vectors without specific IDs 
+        # that might not match DB IDs. UI suggests rebuilding index if needed.
+        db.session.delete(chunk)
+        db.session.commit()
+        return jsonify({'message': 'Chunk deleted'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
 @admin_bp.route('/api/admin/users/<int:user_id>/toggle', methods=['POST'])
 @admin_required
 def toggle_user(user_id):
