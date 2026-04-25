@@ -107,7 +107,6 @@ def handle_filter_options():
                 run_background_task(DocumentProcessor.process_document, new_doc.id)
                 logging.info(f"✅ Intelligence Grounded: {value} ({course_name}/{semester_name})")
 
-        global _FILTERS_CACHE
         _FILTERS_CACHE = None # Invalidate cache
         return jsonify({'message': 'Option created', 'id': new_opt.id})
     except Exception as e:
