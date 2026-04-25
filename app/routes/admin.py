@@ -49,8 +49,13 @@ def handle_filter_options():
         except Exception as e:
             return jsonify({'error': str(e)}), 500
             
-    # POST - Create new option
-    data = request.json or request.form
+    # POST - Create new option (can include syllabus for subjects)
+    is_json = request.is_json
+    if is_json:
+        data = request.get_json()
+    else:
+        data = request.form
+
     category = data.get('category')
     value = data.get('value')
     parent_id = data.get('parent_id')
@@ -58,12 +63,57 @@ def handle_filter_options():
     if not category or not value:
         return jsonify({'error': 'Missing category or value'}), 400
         
-    new_opt = FilterOption(category=category, value=value, parent_id=parent_id)
-    db.session.add(new_opt)
-    db.session.commit()
-    
-    _FILTERS_CACHE = None # Invalidate cache
-    return jsonify({'message': 'Option created', 'id': new_opt.id})
+    try:
+        new_opt = FilterOption(category=category, value=value, parent_id=parent_id)
+        db.session.add(new_opt)
+        db.session.commit()
+        
+        # If it's a subject, handle syllabus grounding
+        if category == 'subject' and not is_json:
+            file = request.files.get('file')
+            if file:
+                # 1. Determine Course/Semester from parent IDs
+                course_name = "Unknown"
+                semester_name = "Unknown"
+                
+                if parent_id:
+                    sem = FilterOption.query.get(parent_id)
+                    if sem:
+                        semester_name = sem.value
+                        if sem.parent_id:
+                            course = FilterOption.query.get(sem.parent_id)
+                            if course:
+                                course_name = course.value
+
+                # 2. Upload and Ingest via DocumentProcessor (reusing upload logic)
+                from app.services.supabase_service import SupabaseService
+                from app.services.document_processor import DocumentProcessor
+                from app.models import Document
+                
+                file_path = SupabaseService.upload_file(file)
+                new_doc = Document(
+                    filename=file.filename,
+                    file_path=file_path,
+                    course=course_name,
+                    semester=semester_name,
+                    subject=value,
+                    doc_type='syllabus',
+                    status='pending'
+                )
+                db.session.add(new_doc)
+                db.session.commit()
+                
+                # Process in background
+                run_background_task(DocumentProcessor.process_document, new_doc.id)
+                logging.info(f"✅ Intelligence Grounded: {value} ({course_name}/{semester_name})")
+
+        global _FILTERS_CACHE
+        _FILTERS_CACHE = None # Invalidate cache
+        return jsonify({'message': 'Option created', 'id': new_opt.id})
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"❌ Failed to deploy subject: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @admin_bp.route('/api/admin/filter-options/<int:opt_id>', methods=['DELETE'])
 @admin_required
