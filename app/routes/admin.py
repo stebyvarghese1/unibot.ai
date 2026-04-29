@@ -66,12 +66,14 @@ def handle_filter_options():
     try:
         new_opt = FilterOption(category=category, value=value, parent_id=parent_id)
         db.session.add(new_opt)
-        db.session.commit()
         
         # If it's a subject, handle syllabus grounding
-        if category == 'subject' and not is_json:
-            file = request.files.get('file')
-            if file:
+        if category == 'subject':
+            if not is_json:
+                file = request.files.get('file')
+                if not file:
+                    return jsonify({'error': 'A syllabus file is required to create a subject.'}), 400
+                    
                 # 1. Determine Course/Semester from parent IDs
                 course_name = "Unknown"
                 semester_name = "Unknown"
@@ -116,13 +118,16 @@ def handle_filter_options():
                     uploaded_by=session.get('user_id')
                 )
                 db.session.add(new_doc)
-                db.session.commit()
+                db.session.flush() # Flush to get IDs if needed
                 
                 # Process in background
                 from app.routes.docs import process_document_task
                 run_background_task(process_document_task, new_doc.id, app=supa._client.app if hasattr(supa._client, 'app') else None)
                 logging.info(f"✅ Intelligence Grounded: {value} ({course_name}/{semester_name})")
+            else:
+                return jsonify({'error': 'A syllabus file must be uploaded as multipart/form-data.'}), 400
 
+        db.session.commit()
         _FILTERS_CACHE = None # Invalidate cache
         return jsonify({'message': 'Option created', 'id': new_opt.id})
     except Exception as e:
