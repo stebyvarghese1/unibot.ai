@@ -955,11 +955,13 @@
           setTimeout(async () => {
             if (selectedCourseId === id) { selectedCourseId = null; selectedSemesterId = null; }
             if (selectedSemesterId === id) { selectedSemesterId = null; }
+            resetDetailView();
             await loadFilterOptions();
           }, 400);
         } else {
           if (selectedCourseId === id) { selectedCourseId = null; selectedSemesterId = null; }
           if (selectedSemesterId === id) { selectedSemesterId = null; }
+          resetDetailView();
           await loadFilterOptions();
         }
       }
