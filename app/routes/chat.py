@@ -91,6 +91,19 @@ def chat():
                 except Exception as le:
                     logging.warning(f"Live search failed: {le}")
 
+        # 2.7 Fetch Master Syllabus Structure for Grounding
+        syllabus_structure = None
+        if mode == 'syllabus' and user.pref_course and user.pref_semester and user.pref_subject:
+            from app.models import Document
+            master_doc = Document.query.filter_by(
+                course=user.pref_course,
+                semester=user.pref_semester,
+                subject=user.pref_subject,
+                doc_type='syllabus'
+            ).first()
+            if master_doc and master_doc.structure_json:
+                syllabus_structure = master_doc.structure_json
+
         # 3. Generation
         context = "\n\n".join([r['text'] for r in results])
         if live_context:
@@ -103,7 +116,8 @@ def chat():
             user_preferred_name=user.preferred_name,
             course=user.pref_course,
             semester=user.pref_semester,
-            subject=user.pref_subject
+            subject=user.pref_subject,
+            syllabus_context=syllabus_structure
         )
         
         # 4. Save Message
