@@ -143,9 +143,48 @@ def handle_filter_options():
 def delete_filter_option(opt_id):
     try:
         opt = FilterOption.query.get(opt_id)
+        if not not opt:
+            # 1. Identify associated documents scope
+            target_course = None
+            target_semester = None
+            target_subject = None
+            
+            curr = opt
+            while curr:
+                if curr.category == 'course': target_course = curr.value
+                elif curr.category == 'semester': target_semester = curr.value
+                elif curr.category == 'subject': target_subject = curr.value
+                curr = curr.parent
+
+            # 2. Find and clean up documents matching this hierarchy path
+            doc_query = Document.query
+            if target_course: doc_query = doc_query.filter(Document.course == target_course)
+            if target_semester: doc_query = doc_query.filter(Document.semester == target_semester)
+            if target_subject: doc_query = doc_query.filter(Document.subject == target_subject)
+            
+            docs_to_delete = doc_query.all()
+            
+            if docs_to_delete:
+                from app.services.supabase_service import SupabaseService
+                from app.services.vector_store import VectorStore
+                supa = SupabaseService()
+                vs = VectorStore.get_instance()
+                
+                for doc in docs_to_delete:
+                    # Supabase Storage
+                    if doc.file_path and not str(doc.file_path).startswith(('http://', 'https://')):
+                        try: supa.delete_file(doc.file_path)
+                        except: pass
+                    # Vector Store
+                    try: vs.remove_document(doc.id)
+                    except: pass
+                    # DB Chunks & Document
+                    DocumentChunk.query.filter_by(document_id=doc.id).delete()
+                    db.session.delete(doc)
+
         if not opt: return jsonify({'error': 'Not found'}), 404
         
-        # Recursive deletion of children (Course -> Semesters -> Subjects)
+        # Recursive deletion of filter options (Course -> Semesters -> Subjects)
         def delete_recursive(o):
             for child in o.children:
                 delete_recursive(child)
@@ -156,7 +195,7 @@ def delete_filter_option(opt_id):
         
         global _FILTERS_CACHE
         _FILTERS_CACHE = None
-        return jsonify({'message': 'Hierarchy branch deleted successfully'})
+        return jsonify({'message': 'Hierarchy branch and associated data purged successfully'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
