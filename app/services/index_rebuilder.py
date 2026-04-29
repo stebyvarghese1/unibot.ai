@@ -27,7 +27,9 @@ def rebuild_index_from_db():
         
         # 2. Extract text content and metadata from chunks
         from app.models import Document
-        doc_map = {d.id: d for d in Document.query.all()}
+        docs = Document.query.all()
+        # Store primitive values in dict to prevent SQLAlchemy lazy-loading after commits expire objects
+        doc_map = {d.id: {'doc_type': d.doc_type, 'filename': d.filename} for d in docs}
         
         # 3. Get the singleton vector store instance
         vector_store = VectorStore.get_instance()
@@ -38,15 +40,18 @@ def rebuild_index_from_db():
         current_batch_metas = []
         total_processed = 0
         
-        # Use yield_per for memory-efficient streaming from DB
-        for c in DocumentChunk.query.yield_per(100):
+        # Iterate over the already-loaded chunks list
+        # We avoid yield_per because db.session.commit() inside add_texts will kill server-side cursors
+        for c in chunks:
             current_batch_texts.append(c.chunk_text)
+            
+            doc_info = doc_map.get(c.document_id, {'doc_type': 'syllabus', 'filename': None})
             current_batch_metas.append({
                 'text': c.chunk_text,
                 'doc_id': c.document_id,
                 'chunk_id': c.id,
-                'doc_type': doc_map[c.document_id].doc_type if c.document_id in doc_map else 'syllabus',
-                'filename': doc_map[c.document_id].filename if c.document_id in doc_map else None
+                'doc_type': doc_info['doc_type'],
+                'filename': doc_info['filename']
             })
             
             if len(current_batch_texts) >= BATCH_SIZE:
@@ -67,4 +72,4 @@ def rebuild_index_from_db():
     except Exception as e:
         logging.error(f"Error rebuilding vector index from database: {e}", exc_info=True)
         TaskTracker.complete_task(task_name, f"Error: {str(e)}")
-        raise
+        raise
