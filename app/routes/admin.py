@@ -14,41 +14,44 @@ _FILTERS_CACHE_TIME = 0
 FILTERS_CACHE_TTL = 300 # 5 minutes
 
 @admin_bp.route('/api/filters', methods=['GET'])
+def get_public_filters():
+    global _FILTERS_CACHE, _FILTERS_CACHE_TIME
+    try:
+        now = time.time()
+        if _FILTERS_CACHE and (now - _FILTERS_CACHE_TIME) < FILTERS_CACHE_TTL:
+            return jsonify(_FILTERS_CACHE)
+
+        # Efficiently fetch categorized values directly from DB
+        def get_distinct(cat):
+            return [r[0] for r in db.session.query(FilterOption.value)
+                    .filter(FilterOption.category == cat, FilterOption.value != None)
+                    .distinct().order_by(FilterOption.value).all()]
+
+        courses = get_distinct('course')
+        semesters = get_distinct('semester')
+        subjects = get_distinct('subject')
+        
+        # Fetch all for the mapping view (can still be slow, but separate from dropdowns)
+        opts = FilterOption.query.all()
+        all_list = [o.to_dict() for o in opts]
+        
+        _FILTERS_CACHE = {
+            'all': all_list,
+            'courses': courses,
+            'semesters': semesters,
+            'subjects': subjects
+        }
+        _FILTERS_CACHE_TIME = now
+        return jsonify(_FILTERS_CACHE)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @admin_bp.route('/api/admin/filter-options', methods=['GET', 'POST'])
 @admin_required
 def handle_filter_options():
-    global _FILTERS_CACHE, _FILTERS_CACHE_TIME
     if request.method == 'GET':
-        try:
-            now = time.time()
-            if _FILTERS_CACHE and (now - _FILTERS_CACHE_TIME) < FILTERS_CACHE_TTL:
-                return jsonify(_FILTERS_CACHE)
-
-            # Efficiently fetch categorized values directly from DB
-            def get_distinct(cat):
-                return [r[0] for r in db.session.query(FilterOption.value)
-                        .filter(FilterOption.category == cat, FilterOption.value != None)
-                        .distinct().order_by(FilterOption.value).all()]
-
-            courses = get_distinct('course')
-            semesters = get_distinct('semester')
-            subjects = get_distinct('subject')
-            
-            # Fetch all for the mapping view (can still be slow, but separate from dropdowns)
-            opts = FilterOption.query.all()
-            all_list = [o.to_dict() for o in opts]
-            
-            _FILTERS_CACHE = {
-                'all': all_list,
-                'courses': courses,
-                'semesters': semesters,
-                'subjects': subjects
-            }
-            _FILTERS_CACHE_TIME = now
-            return jsonify(_FILTERS_CACHE)
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-            
+        return get_public_filters()
+        
     # POST - Create new option (can include syllabus for subjects)
     is_json = request.is_json
     if is_json:
