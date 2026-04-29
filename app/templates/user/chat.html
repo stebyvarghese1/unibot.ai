@@ -1127,7 +1127,7 @@
             type();
         }
 
-        function appendMessage(sender, text, isLoading = false, sources = [], skipTyping = false, msgId = null, existingFeedback = null) {
+        function appendMessage(sender, text, isLoading = false, sources = [], skipTyping = false, msgId = null, existingFeedback = null, onComplete = null) {
             const welcome = document.getElementById('welcome-message');
             if (welcome) welcome.remove();
 
@@ -1289,10 +1289,12 @@
                 if (skipTyping) {
                     contentDiv.innerHTML = marked.parse(text);
                     actionsRow.classList.remove('opacity-0'); // Show always if from history
+                    if (onComplete) onComplete();
                 } else {
                     typeMessage(contentDiv, text, text.length > 200 ? 0 : 8, () => {
                         actionsRow.classList.remove('opacity-0');
                         actionsRow.classList.add('fade-in');
+                        if (onComplete) onComplete();
                     });
                 }
             }
@@ -1339,12 +1341,12 @@
                 const thinkers = chatHistory.querySelectorAll('.thinking-container');
                 thinkers.forEach(el => el.remove());
 
-                // Reset Button
-                sendBtn.classList.remove('btn-loading');
-                sendBtn.innerHTML = originalIcon;
-
                 if (response.ok) {
-                    appendMessage('bot', data.answer, false, data.sources || [], false, data.message_id);
+                    appendMessage('bot', data.answer, false, data.sources || [], false, data.message_id, null, () => {
+                        // Reset Button ONLY after typing finishes
+                        sendBtn.classList.remove('btn-loading');
+                        sendBtn.innerHTML = originalIcon;
+                    });
 
                     // Update session ID if server returned a different one
                     if (data.session_id && currentSessionId !== data.session_id) {
@@ -1356,17 +1358,19 @@
                         loadSessions(); // Reload sidebar immediately to show new session
                     }
                 } else {
-                    appendMessage('bot', '**Error:** ' + (data.error || 'Something went wrong.'));
+                    appendMessage('bot', '**Error:** ' + (data.error || 'Something went wrong.'), false, [], false, null, null, () => {
+                        sendBtn.classList.remove('btn-loading');
+                        sendBtn.innerHTML = originalIcon;
+                    });
                 }
             } catch (error) {
                 const thinkers = chatHistory.querySelectorAll('.thinking-container');
                 thinkers.forEach(el => el.remove());
                 
-                // Reset Button
-                sendBtn.classList.remove('btn-loading');
-                sendBtn.innerHTML = originalIcon;
-                
-                appendMessage('bot', '**Network error.** Please try again.');
+                appendMessage('bot', '**Network error.** Please try again.', false, [], false, null, null, () => {
+                    sendBtn.classList.remove('btn-loading');
+                    sendBtn.innerHTML = originalIcon;
+                });
             }
         });
 
