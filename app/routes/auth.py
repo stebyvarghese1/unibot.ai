@@ -220,3 +220,50 @@ def complete_tour():
     user.show_tour = False
     db.session.commit()
     return jsonify({'message': 'Tour completed'})
+
+@auth_bp.route('/api/profile/delete-otp-request', methods=['POST'])
+@login_required
+def request_delete_otp():
+    user = User.query.get(session['user_id'])
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    supa = SupabaseService()
+    success = supa.send_otp(user.email)
+    if success:
+        return jsonify({'message': 'Verification code sent'})
+    return jsonify({'error': 'Failed to send verification code'}), 500
+
+@auth_bp.route('/api/profile', methods=['DELETE'])
+@login_required
+def delete_profile():
+    user = User.query.get(session['user_id'])
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+        
+    data = request.json or {}
+    
+    if user.password_hash:
+        password = data.get('password')
+        if not password or not check_password_hash(user.password_hash, password):
+            return jsonify({'error': 'Invalid password'}), 400
+    else:
+        otp = data.get('otp')
+        if not otp:
+            return jsonify({'error': 'Verification code required'}), 400
+            
+        supa = SupabaseService()
+        if not supa.verify_otp(user.email, otp):
+            return jsonify({'error': 'Invalid verification code'}), 400
+            
+    # Delete from Supabase Auth if applicable
+    if user.supabase_uid or not user.password_hash:
+        supa = SupabaseService()
+        supa.delete_user_by_email(user.email)
+            
+    # Delete user from database
+    db.session.delete(user)
+    db.session.commit()
+    session.clear()
+    
+    return jsonify({'message': 'Account deleted successfully'})
