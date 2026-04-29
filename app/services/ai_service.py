@@ -1,5 +1,4 @@
 from huggingface_hub import InferenceClient
-from groq import Groq
 from config import Config
 from flask import current_app
 import time
@@ -53,28 +52,6 @@ class AIService:
                 return result
         except Exception as e:
             logging.warning(f"Hugging Face query rewrite failed: {e}")
-
-        # Fallback to Groq
-        try:
-            groq_key = current_app.config.get("GROQ_API_KEY") if current_app else Config.GROQ_API_KEY
-            if groq_key:
-                groq_client = Groq(api_key=groq_key)
-                rewrite_messages = [
-                    {"role": "system", "content": "You are a query refiner. Rewrite the user's latest message to be a STANDALONE search query using the provided history. Return ONLY the rewritten text. DO NOT answer the question."},
-                    {"role": "user", "content": f"History:\n{history_str}\n\nLatest Message: {question}\n\nStandalone Query:"}
-                ]
-                completion = groq_client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=rewrite_messages,
-                    temperature=0,
-                    max_tokens=100
-                )
-                result = completion.choices[0].message.content
-                result = (result or "").strip().strip('"').strip("'").strip()
-                if result and len(result) > 2:
-                    return result
-        except Exception as e:
-            logging.warning(f"Groq query rewrite fallback failed: {e}")
                 
         return question
 
@@ -223,43 +200,6 @@ class AIService:
         except Exception as e:
             logging.error(f"Hugging Face generation failed: {e}")
 
-        # 2. Try Groq (Fallback)
-        try:
-            groq_key = current_app.config.get("GROQ_API_KEY") if current_app else Config.GROQ_API_KEY
-            if groq_key:
-                groq_client = Groq(api_key=groq_key)
-                model = current_app.config.get("GROQ_LLM_MODEL") if current_app else Config.GROQ_LLM_MODEL
-                
-                total_text = sys_prompt + context + question
-                for m in history or []:
-                     total_text += m.get('content', '')
-                
-                req_tokens = approx_tokens(total_text) + 500
-                
-                try_models = [model, "llama-3.3-70b-versatile"]
-                if req_tokens < 5500:
-                    try_models.append("llama-3.1-8b-instant")
-                
-                for m in try_models:
-                    if not m: continue
-                    try:
-                        completion = groq_client.chat.completions.create(
-                            model=m,
-                            messages=messages,
-                            temperature=0.2,
-                            max_tokens=2048
-                        )
-                        out = completion.choices[0].message.content
-                        if out and len(out.strip()) > 0:
-                            return out.strip()
-                    except Exception as ge:
-                        err_msg = str(ge).lower()
-                        logging.warning(f"Groq generation failed with {m}: {ge}")
-                        if "429" in err_msg or "rate_limit" in err_msg or "413" in err_msg:
-                             continue
-        except Exception as e:
-            logging.error(f"Groq generation fallback failed: {e}")
-
         return "The AI service is currently experiencing high load or is temporarily unavailable. Please try again in a moment."
 
     @staticmethod
@@ -359,35 +299,7 @@ class AIService:
                     except Exception as e2:
                         continue
                         
-            logging.error("All Hugging Face fallback models failed for website content. Attempting Groq fallback...")
-            
-            # 3. Try Groq (Fallback)
-            try:
-                groq_key = current_app.config.get("GROQ_API_KEY") if current_app else Config.GROQ_API_KEY
-                if groq_key:
-                    from groq import Groq
-                    groq_client = Groq(api_key=groq_key)
-                    model = current_app.config.get("GROQ_LLM_MODEL") if current_app else Config.GROQ_LLM_MODEL
-                    
-                    try_models = [model, "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-                    for m in try_models:
-                        if not m: continue
-                        try:
-                            completion = groq_client.chat.completions.create(
-                                model=m,
-                                messages=messages,
-                                temperature=0.2,
-                                max_tokens=2048
-                            )
-                            out = completion.choices[0].message.content
-                            if out and len(out.strip()) > 0:
-                                return out.strip()
-                        except Exception as ge:
-                            logging.warning(f"Website Groq generation failed with {m}: {ge}")
-                            continue
-            except Exception as e:
-                logging.error(f"Website Groq fallback failed: {e}")
-
+            logging.error("All Hugging Face fallback models failed for website content.")
             return "This information is not found on the page."
         except Exception as e:
             return f"Error generating answer: {e}"
@@ -464,26 +376,6 @@ class AIService:
                 return out.strip()
         except Exception as e:
             logging.warning(f"Hugging Face smalltalk failed: {e}")
-
-        # Fallback to Groq
-        try:
-            groq_key = current_app.config.get("GROQ_API_KEY") if current_app else Config.GROQ_API_KEY
-            if groq_key:
-                groq_client = Groq(api_key=groq_key)
-                completion = groq_client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[
-                        {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + (f"IMPORTANT: The user's name is {user_preferred_name}. You MUST start your response by greeting them by their name (e.g. 'Hello {user_preferred_name}!')" if user_preferred_name else "")},
-                        {"role": "user", "content": text}
-                    ],
-                    max_tokens=64,
-                    temperature=0.7
-                )
-                out = completion.choices[0].message.content
-                if out and len(out.strip()) > 0:
-                    return out.strip()
-        except Exception as e:
-            logging.warning(f"Groq smalltalk fallback failed: {e}")
         
         # Final hardcoded fallback
         name_part = f" {user_preferred_name}" if user_preferred_name else ""
@@ -571,37 +463,4 @@ class AIService:
             return out
         except Exception as e:
             logging.error(f"HF syllabus analysis failed: {e}")
-
-        # Fallback to Groq
-        try:
-            groq_key = current_app.config.get("GROQ_API_KEY") if current_app else Config.GROQ_API_KEY
-            if groq_key:
-                groq_client = Groq(api_key=groq_key)
-                completion = groq_client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": (
-                                "You are a Syllabus Parser. Your task is to extract the structural hierarchy of a university course syllabus.\n"
-                                "Output ONLY a JSON object with the following structure:\n"
-                                "{\n"
-                                "  \"units\": [\n"
-                                "    {\n"
-                                "      \"title\": \"Unit 1: [Title]\",\n"
-                                "      \"topics\": [\"Topic 1\", \"Topic 2\", ...]\n"
-                                "    },\n"
-                                "    ...\n"
-                                "  ]\n"
-                                "}\n"
-                                )
-                        },
-                        {"role": "user", "content": f"Syllabus Text:\n{text[:15000]}"}
-                    ],
-                    response_format={"type": "json_object"},
-                    temperature=0.1
-                )
-                return completion.choices[0].message.content
-        except Exception as e:
-            logging.error(f"Groq syllabus analysis fallback failed: {e}")
             return "{}"
