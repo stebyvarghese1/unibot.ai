@@ -66,3 +66,9 @@ def profile_page():
 @page_login_required
 def chat_page():
     return render_template('user/chat.html')
+
+@main_bp.route('/logout')
+def logout_page():
+    session.clear()
+    return redirect('/login')
+
