@@ -110,7 +110,7 @@ class ChatMessage(db.Model):
             'id': self.id,
             'user_id': self.user_id,
             'question': self.question,
-            'answer': (self.answer[:200] + '...') if self.answer and len(self.answer) > 200 else self.answer,
+            'answer': self.answer,
             'course': self.course,
             'semester': self.semester,
             'subject': self.subject,
