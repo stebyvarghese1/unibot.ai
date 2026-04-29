@@ -795,7 +795,7 @@
                                 sources = [];
                             }
                         }
-                        appendMessage('bot', m.answer, false, m.sources || [], true, m.id, m.feedback);
+                        appendMessage('bot', m.answer, false, sources || [], true, m.id, m.feedback);
                     });
                 }
                 loadSessions(); // Refresh active state
@@ -1288,9 +1288,11 @@
 
                 if (skipTyping) {
                     contentDiv.innerHTML = marked.parse(text);
+                    renderSources();
                     actionsRow.classList.remove('opacity-0'); // Show always if from history
                 } else {
                     typeMessage(contentDiv, text, text.length > 200 ? 0 : 8, () => {
+                        renderSources();
                         actionsRow.classList.remove('opacity-0');
                         actionsRow.classList.add('fade-in');
                     });
