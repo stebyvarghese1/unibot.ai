@@ -144,6 +144,11 @@ def verify_supabase():
         logging.error(f"Supabase verification error: {e}", exc_info=True)
         return jsonify({'error': 'Internal server error during verification'}), 500
 
+@auth_bp.route('/api/auth/callback', methods=['GET'])
+def auth_callback():
+    from flask import render_template, current_app
+    return render_template('user/callback.html', config=current_app.config)
+
 @auth_bp.route('/api/check-auth', methods=['GET'])
 def check_auth():
     if 'user_id' in session:
