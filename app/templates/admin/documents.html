@@ -196,25 +196,17 @@
       <button type="button" onclick="loadDocs()" class="btn-icon shrink-0 text-slate-300 hover:text-white"
         title="Refresh list"><i class="fa-solid fa-sync-alt"></i> Refresh</button>
     </div>
-    <div class="overflow-x-auto custom-scrollbar">
+    <div class="overflow-hidden hide-h-scrollbar">
       <table class="min-w-full divide-y divide-slate-800">
         <thead class="bg-slate-800/50">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest min-w-[200px]">
-              Filename
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest w-32">Course
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest w-24">Semester
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest w-24">Subject
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest w-32">Status
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Upload Date
-            </th>
-            <th class="px-6 py-3 text-right text-xs font-black text-slate-500 uppercase tracking-widest w-40">Actions
-            </th>
+            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Filename</th>
+            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Course</th>
+            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Semester</th>
+            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Subject</th>
+            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Status</th>
+            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Upload Date</th>
+            <th class="px-3 py-3 text-right text-xs font-black text-slate-500 uppercase tracking-widest">Actions</th>
           </tr>
         </thead>
         <tbody id="doc-list" class="bg-slate-900 divide-y divide-slate-800"></tbody>
@@ -465,34 +457,34 @@
           : `<div class="mt-1.5 text-[8px] font-bold text-slate-600 uppercase tracking-widest">Supporting Doc</div>`;
 
         tr.innerHTML = `
-          <td class="px-6 py-4 whitespace-nowrap">
+          <td class="px-3 py-4">
             <div class="flex items-center">
               <div class="flex-shrink-0 h-10 w-10 ${isSyllabus ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'} rounded-lg flex items-center justify-center border transition-all">
                 <i class="fa-solid ${isSyllabus ? 'fa-microchip' : 'fa-file-lines'}"></i>
               </div>
-              <div class="ml-4">
-                <div class="text-sm font-bold ${isSyllabus ? 'text-emerald-400' : 'text-white'} transition-colors">${doc.filename}</div>
+              <div class="ml-4 min-w-0 flex-1">
+                <div class="text-sm font-bold ${isSyllabus ? 'text-emerald-400' : 'text-white'} transition-colors break-all">${doc.filename}</div>
                 ${masterBadge}
               </div>
             </div>
           </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">${courseBadge}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">${semBadge}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">${subjBadge}</td>
-          <td class="px-6 py-4 whitespace-nowrap">
+          <td class="px-3 py-4 text-sm text-slate-500 font-medium">${courseBadge}</td>
+          <td class="px-3 py-4 text-sm text-slate-500 font-medium">${semBadge}</td>
+          <td class="px-3 py-4 text-sm text-slate-500 font-medium">${subjBadge}</td>
+          <td class="px-3 py-4">
             <span class="px-2 py-1 inline-flex text-[10px] font-black uppercase tracking-tighter rounded-full items-center ${statusClass}">
               <i class="fas ${statusIcon} mr-1.5 text-[8px]"></i> ${doc.status}
             </span>
           </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">${date}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+          <td class="px-3 py-4 text-sm text-slate-500 font-medium">${date}</td>
+          <td class="px-3 py-4 text-right text-sm font-medium">
             <div class="flex items-center justify-end gap-2">
                 <button onclick="${isSyllabus ? `toggleDocRole(${doc.id}, 'general')` : `toggleDocRole(${doc.id}, 'syllabus')`}" 
-                  class="p-2 rounded-lg ${isSyllabus ? 'bg-slate-800 text-slate-500 hover:text-white' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white'} transition-all" 
+                  class="p-2 rounded-lg ${isSyllabus ? 'bg-slate-800 text-slate-500 hover:text-white' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white'} transition-all flex-shrink-0" 
                   title="${isSyllabus ? 'Set as Supporting' : 'Set as Master Syllabus'}">
                   <i class="fa-solid ${isSyllabus ? 'fa-arrow-down-wide-short' : 'fa-crown'}"></i>
                 </button>
-                <button onclick="deleteDoc(${doc.id}, this)" class="p-2 bg-slate-800 text-slate-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all" title="Delete Permanent">
+                <button onclick="deleteDoc(${doc.id}, this)" class="p-2 bg-slate-800 text-slate-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all flex-shrink-0" title="Delete Permanent">
                   <i class="fa-solid fa-trash-can"></i>
                 </button>
             </div>
