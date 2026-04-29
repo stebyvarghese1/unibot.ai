@@ -69,6 +69,7 @@ class VectorStore:
             db.session.commit()
             
             logging.info(f"Successfully added {len(records)} documents to Supabase pgvector via SQLAlchemy")
+            self._stats_cache = None
             return True
         except Exception as e:
             from app import db
@@ -114,6 +115,7 @@ class VectorStore:
             sql = text("DELETE FROM embeddings WHERE metadata->>'doc_id' = :doc_id OR metadata->>'document_id' = :doc_id")
             db.session.execute(sql, {'doc_id': str(doc_id)})
             db.session.commit()
+            self._stats_cache = None
             logging.info(f"Removed documents with doc_id {doc_id} from Supabase via SQLAlchemy")
         except Exception as e:
             from app import db
@@ -130,6 +132,7 @@ class VectorStore:
             sql = text("DELETE FROM embeddings WHERE metadata->>'chunk_id' = :chunk_id")
             db.session.execute(sql, {'chunk_id': str(chunk_id)})
             db.session.commit()
+            self._stats_cache = None
             logging.info(f"Removed chunk with chunk_id {chunk_id} from Supabase via SQLAlchemy")
         except Exception as e:
             from app import db
@@ -182,6 +185,7 @@ class VectorStore:
             sql = text("DELETE FROM embeddings WHERE content != '___NEVER_MATCH___'")
             db.session.execute(sql)
             db.session.commit()
+            self._stats_cache = None
             logging.info("Cleared all embeddings from Supabase via SQLAlchemy")
         except Exception as e:
             from app import db
