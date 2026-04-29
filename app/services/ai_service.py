@@ -145,7 +145,7 @@ class AIService:
         return all_embeddings
 
     @staticmethod
-    def generate_answer(question, context, mode='studies', history=None, syllabus_context=None, custom_sys_prompt=None, user_preferred_name=None, course=None, semester=None, subject=None):
+    def generate_answer(question, context, mode='syllabus', history=None, syllabus_context=None, custom_sys_prompt=None, user_preferred_name=None, course=None, semester=None, subject=None):
         # 1. Base Identity
         base_identity = "You are a sophisticated AI-powered Intelligence Assistant. Your name is Unibot."
         
@@ -153,7 +153,7 @@ class AIService:
         if custom_sys_prompt:
             sys_prompt = f"{base_identity}\n\n{custom_sys_prompt}"
         else:
-            role_desc = "University Academic Advisor" if mode == 'studies' else "Official Institutional Interface"
+            role_desc = "University Academic Advisor" if mode == 'syllabus' else "Official Institutional Interface"
             sys_prompt = (
                 f"{base_identity}\n\n"
                 f"You are currently in **{mode.upper()} MODE**. Your role is: **{role_desc}**.\n\n"
