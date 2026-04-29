@@ -160,11 +160,11 @@
     const sel = document.getElementById('document-filter');
     if (!sel) return;
     try {
-      const res = await fetch('/api/admin/documents');
-      const docs = await res.json();
+      const res = await fetch('/api/admin/documents?per_page=1000'); // fetch more docs for filter
+      const data = await res.json();
       const currentVal = sel.value;
       sel.innerHTML = '<option value="">All documents</option>';
-      (docs || []).forEach(function (d) {
+      (data.items || []).forEach(function (d) {
         const opt = document.createElement('option');
         opt.value = d.id;
         opt.textContent = d.filename || ('Document #' + d.id);
