@@ -168,21 +168,21 @@
       </div>
       <div class="w-full min-w-0">
         <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Course</label>
-        <select id="course-filter"
+        <select id="filter-course"
           class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0">
           <option value="">All Courses</option>
         </select>
       </div>
       <div class="w-full min-w-0">
         <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Semester</label>
-        <select id="sem-filter"
+        <select id="filter-semester"
           class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0">
           <option value="">All Semesters</option>
         </select>
       </div>
       <div class="w-full min-w-0">
         <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Subject</label>
-        <select id="subj-filter"
+        <select id="filter-subject"
           class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500 min-w-0">
           <option value="">All Subjects</option>
         </select>
@@ -240,19 +240,42 @@
       const res = await fetch('/api/admin/filter-options');
       const data = await res.json();
       allFilters = data.all || [];
-      initUploadForm();
+      initDropdowns();
     } catch (e) { console.error('Error loading filter options', e); }
   }
 
-  function initUploadForm() {
-    const cSelect = document.getElementById('upload-course');
-    const sSelect = document.getElementById('upload-semester');
-    if (!cSelect) return;
-    const courses = allFilters.filter(x => x.category === 'course').sort((a, b) => a.value.localeCompare(b.value));
-    uploadPopulateSelect(cSelect, courses, 'Select Course');
-    cSelect.onchange = () => updateSemesters('upload');
-    if (sSelect) sSelect.onchange = () => updateSubjects('upload');
-    updateSemesters('upload');
+  function initDropdowns() {
+    // For Upload
+    const cUpload = document.getElementById('upload-course');
+    const sUpload = document.getElementById('upload-semester');
+    if (cUpload) {
+        const courses = allFilters.filter(x => x.category === 'course').sort((a, b) => a.value.localeCompare(b.value));
+        uploadPopulateSelect(cUpload, courses, 'Select Course');
+        cUpload.onchange = () => updateSemesters('upload');
+        if (sUpload) sUpload.onchange = () => updateSubjects('upload');
+        updateSemesters('upload');
+    }
+
+    // For Filter
+    const cFilter = document.getElementById('filter-course');
+    const sFilter = document.getElementById('filter-semester');
+    const subFilter = document.getElementById('filter-subject');
+    if (cFilter) {
+        const courses = allFilters.filter(x => x.category === 'course').sort((a, b) => a.value.localeCompare(b.value));
+        uploadPopulateSelect(cFilter, courses, 'All Courses');
+        cFilter.addEventListener('change', () => {
+            updateSemesters('filter');
+            loadDocs(1);
+        });
+        if (sFilter) sFilter.addEventListener('change', () => {
+            updateSubjects('filter');
+            loadDocs(1);
+        });
+        if (subFilter) subFilter.addEventListener('change', () => {
+            loadDocs(1);
+        });
+        updateSemesters('filter');
+    }
   }
 
 
@@ -263,9 +286,12 @@
     const subSelect = document.getElementById(prefix + '-subject');
     if (!sSelect) return;
 
+    const sPlaceholder = prefix === 'upload' ? 'Select Semester' : 'All Semesters';
+    const subPlaceholder = prefix === 'upload' ? 'Select Subject' : 'All Subjects';
+
     const curS = sSelect.value;
-    sSelect.innerHTML = '<option value="">Select Semester</option>';
-    if (subSelect) subSelect.innerHTML = '<option value="">Select Subject</option>';
+    sSelect.innerHTML = '<option value="">' + sPlaceholder + '</option>';
+    if (subSelect) subSelect.innerHTML = '<option value="">' + subPlaceholder + '</option>';
 
     const cVal = cSelect ? cSelect.value : '';
     const courseObj = allFilters.find(x => x.category === 'course' && x.value === cVal);
@@ -273,7 +299,7 @@
       ? allFilters.filter(x => x.category === 'semester' && x.parent_id === courseObj.id)
       : allFilters.filter(x => x.category === 'semester');
     semesters = semesters.sort((a, b) => a.value.localeCompare(b.value));
-    uploadPopulateSelect(sSelect, semesters, 'Select Semester');
+    uploadPopulateSelect(sSelect, semesters, sPlaceholder);
     // Attempt to preserve value if valid
     if (curS && Array.from(sSelect.options).some(o => o.value === curS)) sSelect.value = curS;
   }
@@ -284,8 +310,10 @@
     const subSelect = document.getElementById(prefix + '-subject');
     if (!subSelect) return;
 
+    const subPlaceholder = prefix === 'upload' ? 'Select Subject' : 'All Subjects';
+
     const curSub = subSelect.value;
-    subSelect.innerHTML = '<option value="">Select Subject</option>';
+    subSelect.innerHTML = '<option value="">' + subPlaceholder + '</option>';
 
     const sVal = sSelect ? sSelect.value : '';
     const cVal = cSelect ? cSelect.value : '';
@@ -298,7 +326,7 @@
       ? allFilters.filter(x => x.category === 'subject' && x.parent_id === semObj.id)
       : allFilters.filter(x => x.category === 'subject');
     subjects = subjects.sort((a, b) => a.value.localeCompare(b.value));
-    uploadPopulateSelect(subSelect, subjects, 'Select Subject');
+    uploadPopulateSelect(subSelect, subjects, subPlaceholder);
     if (curSub && Array.from(subSelect.options).some(o => o.value === curSub)) subSelect.value = curSub;
   }
 
@@ -344,15 +372,17 @@
     
     try {
       const search = document.getElementById('search-filter').value;
-      const course = document.getElementById('course-filter').value;
-      const sem = document.getElementById('sem-filter').value;
+      const course = document.getElementById('filter-course').value;
+      const sem = document.getElementById('filter-semester').value;
+      const subj = document.getElementById('filter-subject').value;
       
       const params = new URLSearchParams({
           page: page,
           per_page: perPage,
           search: search,
           course: course,
-          semester: sem
+          semester: sem,
+          subject: subj
       });
       
       const res = await fetch(`/api/admin/documents?${params.toString()}`);
@@ -674,12 +704,6 @@
 
   // Listeners with debounce for search
   let searchTimeout;
-  document.getElementById('course-filter').addEventListener('change', () => loadDocs(1));
-  document.getElementById('sem-filter').addEventListener('change', () => loadDocs(1));
-  const subjSelectEl = document.getElementById('subj-filter');
-  if (subjSelectEl) {
-    subjSelectEl.addEventListener('change', () => loadDocs(1));
-  }
   document.getElementById('search-filter').addEventListener('input', () => {
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(() => loadDocs(1), 400);
