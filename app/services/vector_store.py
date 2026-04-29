@@ -16,6 +16,10 @@ class VectorStore:
             cls._instance.STATS_CACHE_TTL = 60 # 1 minute
         return cls._instance
 
+    @staticmethod
+    def get_instance():
+        return VectorStore()
+
     def initialize_index(self, dimension=384):
         """
         In Supabase, the 'index' is managed by the database table.
