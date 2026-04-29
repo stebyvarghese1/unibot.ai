@@ -51,12 +51,29 @@ class VectorStore:
             })
         
         try:
-            # Upsert into 'embeddings' table
-            result = self.supabase.client.table('embeddings').insert(records).execute()
-            logging.info(f"Successfully added {len(records)} documents to Supabase pgvector")
-            return result
+            from app import db
+            from sqlalchemy import text
+            import json
+            
+            sql = text("""
+                INSERT INTO embeddings (content, metadata, embedding) 
+                VALUES (:content, :metadata, :embedding)
+            """)
+            
+            for record in records:
+                db.session.execute(sql, {
+                    'content': record['content'],
+                    'metadata': json.dumps(record['metadata']),
+                    'embedding': str(record['embedding'])
+                })
+            db.session.commit()
+            
+            logging.info(f"Successfully added {len(records)} documents to Supabase pgvector via SQLAlchemy")
+            return True
         except Exception as e:
-            logging.error(f"Error adding documents to Supabase: {e}")
+            from app import db
+            db.session.rollback()
+            logging.error(f"Error adding documents to Supabase via DB: {e}")
             raise
 
     def add_texts(self, texts, metadata_list=None):
@@ -92,22 +109,32 @@ class VectorStore:
         Remove documents by their document_id from the metadata JSONB column
         """
         try:
-            # Supabase allows filtering on JSONB columns using arrow operators
-            self.supabase.client.table('embeddings').delete().eq('metadata->>doc_id', str(doc_id)).execute()
-            self.supabase.client.table('embeddings').delete().eq('metadata->>document_id', str(doc_id)).execute()
-            logging.info(f"Removed documents with doc_id {doc_id} from Supabase")
+            from app import db
+            from sqlalchemy import text
+            sql = text("DELETE FROM embeddings WHERE metadata->>'doc_id' = :doc_id OR metadata->>'document_id' = :doc_id")
+            db.session.execute(sql, {'doc_id': str(doc_id)})
+            db.session.commit()
+            logging.info(f"Removed documents with doc_id {doc_id} from Supabase via SQLAlchemy")
         except Exception as e:
-            logging.error(f"Error removing document from Supabase: {e}")
+            from app import db
+            db.session.rollback()
+            logging.error(f"Error removing document from Supabase DB: {e}")
 
     def remove_chunk(self, chunk_id):
         """
         Remove a specific chunk by its chunk_id from the metadata
         """
         try:
-            self.supabase.client.table('embeddings').delete().eq('metadata->>chunk_id', str(chunk_id)).execute()
-            logging.info(f"Removed chunk with chunk_id {chunk_id} from Supabase")
+            from app import db
+            from sqlalchemy import text
+            sql = text("DELETE FROM embeddings WHERE metadata->>'chunk_id' = :chunk_id")
+            db.session.execute(sql, {'chunk_id': str(chunk_id)})
+            db.session.commit()
+            logging.info(f"Removed chunk with chunk_id {chunk_id} from Supabase via SQLAlchemy")
         except Exception as e:
-            logging.error(f"Error removing chunk from Supabase: {e}")
+            from app import db
+            db.session.rollback()
+            logging.error(f"Error removing chunk from Supabase DB: {e}")
 
     def search(self, query_vector, k=5, filter=None):
         """
@@ -150,11 +177,16 @@ class VectorStore:
         Clear all records from the embeddings table
         """
         try:
-            # Simple way to clear table in Supabase (requires permissions)
-            self.supabase.client.table('embeddings').delete().neq('content', '___NEVER_MATCH___').execute()
-            logging.info("Cleared all embeddings from Supabase")
+            from app import db
+            from sqlalchemy import text
+            sql = text("DELETE FROM embeddings WHERE content != '___NEVER_MATCH___'")
+            db.session.execute(sql)
+            db.session.commit()
+            logging.info("Cleared all embeddings from Supabase via SQLAlchemy")
         except Exception as e:
-            logging.error(f"Error clearing Supabase embeddings: {e}")
+            from app import db
+            db.session.rollback()
+            logging.error(f"Error clearing Supabase embeddings via DB: {e}")
 
     def get_stats(self):
         import time
@@ -163,9 +195,10 @@ class VectorStore:
             return self._stats_cache
 
         try:
-            # Count records
-            response = self.supabase.client.table('embeddings').select('id', count='exact').execute()
-            count = response.count if hasattr(response, 'count') else 0
+            from app import db
+            from sqlalchemy import text
+            sql = text("SELECT count(id) FROM embeddings")
+            count = db.session.execute(sql).scalar() or 0
             stats = {
                 'total_vectors': count,
                 'dimension': self.dimension
@@ -173,7 +206,8 @@ class VectorStore:
             self._stats_cache = stats
             self._stats_cache_time = now
             return stats
-        except Exception:
+        except Exception as e:
+            logging.error(f"Error getting stats from DB: {e}")
             return {'total_vectors': 0, 'dimension': self.dimension}
     
     def save_index(self, index_name='vector_index'):
