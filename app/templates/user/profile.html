@@ -489,6 +489,7 @@
 
         function fillSemesterDropdown() {
             if (!sSel) return;
+            const curS = sSel.value;
             const courseVal = cSel ? cSel.value : '';
             const semesters = getSemestersForCourse(courseVal);
 
@@ -497,6 +498,9 @@
             } else {
                 sSel.innerHTML = '<option value="">All Semesters</option>' +
                     semesters.map(s => `<option value="${s.value}">${s.value}</option>`).join('');
+            }
+            if (curS && Array.from(sSel.options).some(o => o.value === curS)) {
+                sSel.value = curS;
             }
         }
 
