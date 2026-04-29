@@ -43,12 +43,55 @@ def chat():
             db.session.add(new_session)
 
     try:
-        # 2. Retrieval
+        # 1.5 Fetch History
+        history = []
+        if session_id:
+            past_msgs = ChatMessage.query.filter_by(session_id=session_id).order_by(ChatMessage.created_at.desc()).limit(6).all()
+            # Reverse to get chronological order for the AI
+            for m in reversed(past_msgs):
+                history.append({"role": "user", "content": m.question})
+                history.append({"role": "assistant", "content": m.answer})
+
+        # 2. Retrieval & AI Service Init
         vector_store = VectorStore.get_instance()
         ai_service = AIService()
         
-        # Get embeddings for query
-        query_emb = ai_service.get_embeddings([question])[0]
+        # 2.1 Handle Smalltalk Shortcut
+        if ai_service.is_smalltalk(question):
+            answer = ai_service.generate_smalltalk(
+                question, 
+                user_preferred_name=user.preferred_name,
+                course=user.pref_course,
+                semester=user.pref_semester,
+                subject=user.pref_subject
+            )
+            
+            # Save smalltalk message without sources
+            new_msg = ChatMessage(
+                user_id=user.id,
+                session_id=session_id,
+                question=question,
+                answer=answer,
+                course=user.pref_course,
+                semester=user.pref_semester,
+                subject=user.pref_subject,
+                sources_json="[]"
+            )
+            db.session.add(new_msg)
+            db.session.commit()
+            
+            return jsonify({
+                'answer': answer,
+                'session_id': session_id,
+                'message_id': new_msg.id,
+                'sources': []
+            })
+
+        # 2.2 Query Rewriting (Contextual Search)
+        search_query = ai_service.rewrite_query(question, history) if history else question
+        
+        # Get embeddings for search query (not necessarily the original question)
+        query_emb = ai_service.get_embeddings([search_query])[0]
         
         # Search static vectors with subject-level grounding
         search_filter = {}
@@ -113,6 +156,7 @@ def chat():
             question, 
             context,
             mode=mode,
+            history=history,
             user_preferred_name=user.preferred_name,
             course=user.pref_course,
             semester=user.pref_semester,
