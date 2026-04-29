@@ -185,11 +185,22 @@
     try {
       const res = await fetch('/api/admin/stats');
       const data = await res.json();
-      document.getElementById('vector-count').innerText = data.total_vectors || 0;
-      document.getElementById('vector-dim').innerText = data.dimension || 1536;
+      
+      const vc = document.getElementById('vector-count');
+      const vd = document.getElementById('vector-dim');
+      const sd = document.getElementById('stats-docs');
+      const si = document.getElementById('stats-intel');
+
+      if (vc) vc.innerText = data.total_vectors || 0;
+      if (vd) vd.innerText = data.dimension || 1536;
+      if (sd) sd.innerText = data.documents || 0;
+      
+      // Subjects count is local to allFilters, but we can refresh it if allFilters is populated
+      if (si && allFilters.length > 0) {
+          si.innerText = allFilters.filter(x => x.category === 'subject').length;
+      }
     } catch (e) {
-      document.getElementById('vector-count').innerText = '0';
-      document.getElementById('vector-dim').innerText = '0';
+      console.error('Stats load failed', e);
     }
   }
 
@@ -257,6 +268,13 @@
               if (data.total > 0) {
                 const percent = Math.round((data.current / data.total) * 100);
                 status.innerText = `${percent}% - ${data.message.toUpperCase()}`;
+                
+                // Real-time updates for the stats card
+                const vc = document.getElementById('vector-count');
+                if (vc) {
+                    vc.innerText = data.current;
+                    vc.classList.add('text-indigo-400', 'animate-pulse');
+                }
               } else {
                 status.innerText = data.message.toUpperCase();
               }
@@ -267,6 +285,10 @@
               rebuildBtn.disabled = false;
               rebuildBtn.classList.remove('opacity-70', 'cursor-not-allowed');
               setTimeout(() => { if (status) status.innerText = ''; }, 6000);
+              
+              const vc = document.getElementById('vector-count');
+              if (vc) vc.classList.remove('text-indigo-400', 'animate-pulse');
+              
               loadStats();
             }
           } catch(e) {
@@ -634,15 +656,8 @@
       allFilters = data.all || [];
       renderManageLists();
       
-      // Update global stats
-      const subCount = allFilters.filter(x => x.category === 'subject').length;
-      const statsRes = await fetch('/api/admin/stats');
-      const statsData = await statsRes.json();
-      
-      const docsEl = document.getElementById('stats-docs');
-      const intelEl = document.getElementById('stats-intel');
-      if(docsEl) docsEl.innerText = statsData.documents || 0;
-      if(intelEl) intelEl.innerText = subCount;
+      // Update global stats via centralized loader
+      loadStats();
       
     } catch (e) { 
       console.error('Load failed', e);
