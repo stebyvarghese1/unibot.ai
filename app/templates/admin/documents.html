@@ -295,9 +295,10 @@
 
     const cVal = cSelect ? cSelect.value : '';
     const courseObj = allFilters.find(x => x.category === 'course' && x.value === cVal);
-    let semesters = courseObj
-      ? allFilters.filter(x => x.category === 'semester' && x.parent_id === courseObj.id)
-      : allFilters.filter(x => x.category === 'semester');
+    let semesters = [];
+    if (courseObj) {
+      semesters = allFilters.filter(x => x.category === 'semester' && x.parent_id === courseObj.id);
+    }
     semesters = semesters.sort((a, b) => a.value.localeCompare(b.value));
     uploadPopulateSelect(sSelect, semesters, sPlaceholder);
     // Attempt to preserve value if valid
@@ -320,11 +321,12 @@
     const courseObj = allFilters.find(x => x.category === 'course' && x.value === cVal);
     const semObj = sVal && courseObj
       ? allFilters.find(x => x.category === 'semester' && x.value === sVal && x.parent_id === courseObj.id)
-      : (sVal ? allFilters.find(x => x.category === 'semester' && x.value === sVal) : null);
+      : null;
 
-    let subjects = semObj
-      ? allFilters.filter(x => x.category === 'subject' && x.parent_id === semObj.id)
-      : allFilters.filter(x => x.category === 'subject');
+    let subjects = [];
+    if (semObj) {
+      subjects = allFilters.filter(x => x.category === 'subject' && x.parent_id === semObj.id);
+    }
     subjects = subjects.sort((a, b) => a.value.localeCompare(b.value));
     uploadPopulateSelect(subSelect, subjects, subPlaceholder);
     if (curSub && Array.from(subSelect.options).some(o => o.value === curSub)) subSelect.value = curSub;
