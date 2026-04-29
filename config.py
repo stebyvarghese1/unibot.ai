@@ -30,12 +30,9 @@ class Config:
     
     # AI Services
     HUGGINGFACE_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
-    GROQ_API_KEY = os.getenv('GROQ_API_KEY')
     HF_EMBEDDING_MODEL = os.getenv('HF_EMBEDDING_MODEL', 'sentence-transformers/all-MiniLM-L6-v2')
     HF_LLM_MODEL = os.getenv('HF_LLM_MODEL', 'google/gemma-2-2b-it')
     HF_SMALLTALK_MODEL = os.getenv('HF_SMALLTALK_MODEL', 'meta-llama/Llama-3.2-1B-Instruct')
-    GROQ_LLM_MODEL = os.getenv('GROQ_LLM_MODEL', 'llama-3.3-70b-versatile')
-    GROQ_SMALLTALK_MODEL = os.getenv('GROQ_SMALLTALK_MODEL', 'llama-3.1-8b-instant')
     HF_IMAGE_CAPTION_MODEL = os.getenv('HF_IMAGE_CAPTION_MODEL', 'Salesforce/blip-image-captioning-large')
     JINA_API_KEY = os.getenv('JINA_API_KEY')
     
