@@ -112,7 +112,8 @@ def handle_filter_options():
                     semester=semester_name,
                     subject=value,
                     doc_type='syllabus',
-                    status='pending'
+                    status='pending',
+                    uploaded_by=session.get('user_id')
                 )
                 db.session.add(new_doc)
                 db.session.commit()
