@@ -199,6 +199,7 @@ def list_documents():
     search = request.args.get('search', '').strip()
     course = request.args.get('course', '')
     semester = request.args.get('semester', '')
+    subject = request.args.get('subject', '')
     
     query = Document.query
     
@@ -208,6 +209,8 @@ def list_documents():
         query = query.filter(Document.course.ilike(course))
     if semester:
         query = query.filter(Document.semester.ilike(semester))
+    if subject:
+        query = query.filter(Document.subject.ilike(subject))
         
     pagination = query.order_by(Document.upload_date.desc()).paginate(page=page, per_page=per_page, error_out=False)
     
