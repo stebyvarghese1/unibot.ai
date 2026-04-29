@@ -771,7 +771,8 @@
 
             try {
                 const r = await fetch(`/api/chat/sessions/${sessionId}`);
-                const msgs = await r.json();
+                const data = await r.json();
+                const msgs = data.messages || [];
 
                 chatHistory.innerHTML = '';
                 if (msgs.length === 0) {
