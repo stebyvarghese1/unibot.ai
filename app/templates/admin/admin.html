@@ -40,7 +40,7 @@
       </div>
       <p class="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Knowledge Chunks</p>
       <div class="flex items-baseline gap-2">
-        <p id="vector-count" class="text-3xl font-black text-white tabular-nums">---</p>
+        <p id="vector-count" class="text-3xl font-black text-white tabular-nums">{{ stats.total_vectors if stats else '---' }}</p>
         <span class="text-[10px] font-bold text-slate-500 uppercase">Vectors</span>
       </div>
     </div>
@@ -53,7 +53,7 @@
       </div>
       <p class="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Intelligence Scale</p>
       <div class="flex items-baseline gap-2">
-        <p id="vector-dim" class="text-3xl font-black text-white tabular-nums">---</p>
+        <p id="vector-dim" class="text-3xl font-black text-white tabular-nums">{{ stats.dimension if stats else '---' }}</p>
         <span class="text-[10px] font-bold text-slate-500 uppercase">Dimensions</span>
       </div>
     </div>
