@@ -23,7 +23,14 @@ def index():
 @main_bp.route('/admin')
 @page_admin_required
 def admin_panel():
-    return render_template('admin/admin.html', active_page='dashboard')
+    from app.services.vector_store import VectorStore
+    try:
+        vs = VectorStore.get_instance()
+        stats = vs.get_stats()
+    except Exception:
+        stats = {'total_vectors': 0, 'dimension': 1536}
+        
+    return render_template('admin/admin.html', active_page='dashboard', stats=stats)
 
 @main_bp.route('/admin/documents')
 @page_admin_required
