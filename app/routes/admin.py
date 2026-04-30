@@ -157,10 +157,11 @@ def delete_filter_option(opt_id):
                 curr = curr.parent
 
             # 2. Find and clean up documents matching this hierarchy path
+            from sqlalchemy import func
             doc_query = Document.query
-            if target_course: doc_query = doc_query.filter(Document.course == target_course)
-            if target_semester: doc_query = doc_query.filter(Document.semester == target_semester)
-            if target_subject: doc_query = doc_query.filter(Document.subject == target_subject)
+            if target_course: doc_query = doc_query.filter(func.lower(Document.course) == func.lower(target_course))
+            if target_semester: doc_query = doc_query.filter(func.lower(Document.semester) == func.lower(target_semester))
+            if target_subject: doc_query = doc_query.filter(func.lower(Document.subject) == func.lower(target_subject))
             
             docs_to_delete = doc_query.all()
             
