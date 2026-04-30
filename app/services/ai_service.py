@@ -426,50 +426,61 @@ class AIService:
             return " [Image: Caption generation failed] "
 
     @staticmethod
-    def analyze_syllabus_text(text: str) -> str:
+    def analyze_syllabus_text(text):
         """Extract a structured JSON of Units and Topics from syllabus text using an LLM."""
         if not text:
             return "{}"
             
-        # Try HF first (Primary)
         try:
-            token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
-            hf_client = InferenceClient(token=token, timeout=90) # Increased timeout for larger text
+            # Increase limit to 60,000 characters
+            processed_text = text[:60000]
             
-            hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
+            system_prompt = """You are a curriculum analysis expert. 
+            Extract the units and their topics from this syllabus text. 
             
-            # Increase limit to 60,000 characters (approx 12-15k tokens)
-            # Most modern models handle this easily.
-            syllabus_snippet = text[:60000]
+            Return ONLY a valid JSON object with the following structure:
+            {"units": [{"title": "Unit X: Name", "topics": ["Topic 1", "Topic 2"]}]}
             
-            response = hf_client.chat_completion(
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": (
-                            "You are a Curriculum Analyst. Your task is to extract the UNIT-wise structure of a university syllabus. "
-                            "Extract EACH unit/module title and a comprehensive list of TOPICS covered in that unit. "
-                            "Output ONLY valid JSON in the following format: "
-                            '{"units": [{"title": "Unit 1: Title", "topics": ["Topic A", "Topic B"]}, ...]}'
-                        )
-                    },
-                    {"role": "user", "content": f"Extract the syllabus structure from this text:\n\n{syllabus_snippet}"}
-                ],
-                model=hf_model or "mistralai/Mistral-7B-Instruct-v0.2",
-                max_tokens=3000,
-                temperature=0.1
+            Rules:
+            1. ONLY return the JSON. No conversational filler.
+            2. If no units are found, return {"units": []}.
+            3. Ensure all units are captured.
+            """
+            
+            model = Config.AI_MODEL # Should be Gemini or high-quality LLM
+            token = Config.HUGGINGFACE_API_TOKEN
+            
+            client = InferenceClient(token=token, timeout=90)
+            
+            response = client.text_generation(
+                f"{system_prompt}\n\nSyllabus Text:\n{processed_text}",
+                max_new_tokens=4000,
+                model=model
             )
             
-            if hasattr(response, 'choices'):
-                out = response.choices[0].message.content
-            else:
-                out = response.get('choices', [{}])[0].get('message', {}).get('content', '{}')
+            out = response.strip()
             
-            if "```json" in out:
-                out = out.split("```json")[1].split("```")[0].strip()
-            elif "```" in out:
-                out = out.split("```")[1].split("```")[0].strip()
-            return out
+            # More robust JSON extraction using regex
+            import re
+            json_match = re.search(r'(\{.*\}|\[.*\])', out, re.DOTALL)
+            if json_match:
+                out = json_match.group(1)
+            else:
+                # Fallback to backtick cleaning if regex fails
+                if "```json" in out:
+                    out = out.split("```json")[1].split("```")[0].strip()
+                elif "```" in out:
+                    out = out.split("```")[1].split("```")[0].strip()
+            
+            # Validate JSON before returning
+            try:
+                import json
+                json.loads(out)
+                return out
+            except Exception as e:
+                logging.error(f"Syllabus analysis returned invalid JSON: {e}\nOutput snippet: {out[:200]}...")
+                return '{"units": []}'
+                
         except Exception as e:
-            logging.error(f"HF syllabus analysis failed: {e}")
-            return "{}"
+            logging.error(f"Syllabus analysis failed: {e}")
+            return '{"units": []}'
