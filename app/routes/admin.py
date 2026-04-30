@@ -61,7 +61,15 @@ def handle_filter_options():
 
     category = data.get('category')
     value = data.get('value')
-    parent_id = data.get('parent_id')
+    parent_id_raw = data.get('parent_id')
+    
+    # Robust parent_id parsing: handles strings, "null", and empty values
+    parent_id = None
+    if parent_id_raw and str(parent_id_raw).strip() and str(parent_id_raw).lower() != 'null':
+        try:
+            parent_id = int(parent_id_raw)
+        except (ValueError, TypeError):
+            parent_id = None
     
     if not category or not value:
         return jsonify({'error': 'Missing category or value'}), 400
@@ -110,6 +118,11 @@ def handle_filter_options():
                     content_type=file.content_type
                 )
                 
+                user_id = session.get('user_id')
+                if not user_id:
+                    # Fallback or error
+                    return jsonify({'error': 'Admin session expired or user ID missing.'}), 401
+                    
                 new_doc = Document(
                     filename=file.filename,
                     file_path=file_path,
@@ -118,14 +131,18 @@ def handle_filter_options():
                     subject=value,
                     doc_type='syllabus',
                     status='pending',
-                    uploaded_by=session.get('user_id')
+                    uploaded_by=user_id
                 )
                 db.session.add(new_doc)
                 db.session.flush() # Flush to get IDs if needed
                 
                 # Process in background
                 from app.routes.docs import process_document_task
-                run_background_task(process_document_task, new_doc.id, app=supa._client.app if hasattr(supa._client, 'app') else None)
+                
+                # Commit before background task
+                db.session.commit()
+                
+                run_background_task(process_document_task, new_doc.id)
                 logging.info(f"✅ Intelligence Grounded: {value} ({course_name}/{semester_name})")
             else:
                 return jsonify({'error': 'A syllabus file must be uploaded as multipart/form-data.'}), 400
