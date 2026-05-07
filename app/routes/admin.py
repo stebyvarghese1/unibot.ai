@@ -541,13 +541,15 @@ def syllabus_intelligence():
     subject = request.args.get('subject')
     
     from sqlalchemy import func
-    doc = Document.query.filter(
+    master_doc = Document.query.filter(
         func.lower(Document.course) == func.lower(course),
         func.lower(Document.semester) == func.lower(semester),
         func.lower(Document.subject) == func.lower(subject),
-        Document.doc_type == 'syllabus'
-    ).first()
+        Document.doc_type == 'syllabus',
+        Document.status == 'processed'
+    ).order_by(Document.created_at.desc()).first()
     
+    doc = master_doc
     if not doc:
         return jsonify({'status': 'missing'})
         
@@ -559,12 +561,14 @@ def syllabus_intelligence():
         except:
             structure = None
 
+    # Return status 'processing' if not done yet
     return jsonify({
-        'status': 'active',
+        'status': 'active' if doc.status == 'processed' else 'processing',
         'filename': doc.filename,
+        'document_id': doc.id,
         'structure': structure or {
             'units': [
-                {'title': 'Intelligence Extraction in Progress', 'topics': ['Processing curriculum data...']}
+                {'title': 'Intelligence Extraction in Progress', 'topics': ['Analyzing curriculum structure...', 'Mapping academic grounding...']}
             ]
         }
     })
