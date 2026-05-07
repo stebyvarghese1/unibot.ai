@@ -555,7 +555,7 @@ def syllabus_intelligence():
             (Document.status == 'processed', 0), 
             else_=1
         ),
-        Document.created_at.desc()
+        Document.upload_date.desc()
     ).first()
     if not doc:
         return jsonify({'status': 'missing'})
