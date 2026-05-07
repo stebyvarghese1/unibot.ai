@@ -820,9 +820,38 @@
         if (content) content.classList.remove('hidden');
         if (document.getElementById('intel-subject-name')) document.getElementById('intel-subject-name').innerText = subjectValue;
         
-        if (data.status === 'active') {
-            if (dot) dot.className = 'w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.5)] pulse-active';
-            if (document.getElementById('intel-filename')) document.getElementById('intel-filename').innerText = "Master Syllabus: " + data.filename;
+        if (data.status === 'active' || data.status === 'processing') {
+            const isProcessing = data.status === 'processing';
+            
+            if (isProcessing) {
+                if (dot) dot.className = 'w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.5)] animate-pulse';
+                if (document.getElementById('intel-filename')) document.getElementById('intel-filename').innerText = "Analyzing: " + data.filename;
+            } else {
+                if (dot) dot.className = 'w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.5)] pulse-active';
+                if (document.getElementById('intel-filename')) document.getElementById('intel-filename').innerText = "Master Syllabus: " + data.filename;
+            }
+
+            // Add Re-process Button
+            const fnLabel = document.getElementById('intel-filename');
+            if (fnLabel && data.document_id) {
+                const reBtn = document.createElement('button');
+                reBtn.className = 'ml-4 px-2 py-1 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded text-[8px] font-black uppercase transition-all';
+                reBtn.innerHTML = '<i class="fa-solid fa-sync mr-1"></i> Re-extract Intelligence';
+                reBtn.onclick = async () => {
+                    if(!confirm('Re-analyze this syllabus? This will update the knowledge map.')) return;
+                    reBtn.disabled = true;
+                    reBtn.innerText = 'Triggering...';
+                    const r = await fetch(`/api/admin/documents/${data.document_id}/reprocess`, { method: 'POST', headers: {'X-CSRFToken': getCsrfToken()} });
+                    if(r.ok) {
+                        alert('Intelligence extraction re-triggered.');
+                        loadSyllabusIntelligence(subjectId, subjectValue);
+                    } else {
+                        reBtn.disabled = false;
+                        reBtn.innerText = 'Failed - Retry?';
+                    }
+                };
+                fnLabel.appendChild(reBtn);
+            }
             
             const unitsContainer = document.getElementById('intel-units');
             if (unitsContainer) {
@@ -843,8 +872,14 @@
                         `;
                         unitsContainer.appendChild(div);
                     });
+                    
+                    // If processing, poll for updates
+                    if (isProcessing) {
+                        setTimeout(() => loadSyllabusIntelligence(subjectId, subjectValue), 5000);
+                    }
                 } else {
                     unitsContainer.innerHTML = '<div class="col-span-2 text-center py-20"><i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-500/40 mb-4 block"></i><p class="text-xs font-black text-slate-600 uppercase tracking-widest">Constructing Intelligence Schema...</p></div>';
+                    setTimeout(() => loadSyllabusIntelligence(subjectId, subjectValue), 3000);
                 }
             }
         } else {
