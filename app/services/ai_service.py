@@ -428,59 +428,96 @@ class AIService:
     @staticmethod
     def analyze_syllabus_text(text):
         """Extract a structured JSON of Units and Topics from syllabus text using an LLM."""
-        if not text:
-            return "{}"
+        if not text or len(text.strip()) < 50:
+            logging.warning("Syllabus text too short for analysis.")
+            return '{"units": []}'
             
         try:
-            # Increase limit to 60,000 characters
-            processed_text = text[:60000]
+            # Use up to 45,000 characters to stay within context limits of most free-tier models
+            processed_text = text[:45000]
             
-            system_prompt = """You are a curriculum analysis expert. 
-            Extract the units and their topics from this syllabus text. 
-            
-            Return ONLY a valid JSON object with the following structure:
-            {"units": [{"title": "Unit X: Name", "topics": ["Topic 1", "Topic 2"]}]}
-            
-            Rules:
-            1. ONLY return the JSON. No conversational filler.
-            2. If no units are found, return {"units": []}.
-            3. Ensure all units are captured.
-            """
-            
-            model = Config.AI_MODEL # Should be Gemini or high-quality LLM
-            token = Config.HUGGINGFACE_API_TOKEN
-            
-            client = InferenceClient(token=token, timeout=90)
-            
-            response = client.text_generation(
-                f"{system_prompt}\n\nSyllabus Text:\n{processed_text}",
-                max_new_tokens=4000,
-                model=model
+            system_prompt = (
+                "You are a Curriculum Analysis Expert. Your task is to extract a structured Knowledge Map from the provided syllabus text.\n\n"
+                "INSTRUCTIONS:\n"
+                "1. Identify all logical divisions (Units, Modules, Chapters, or Sections).\n"
+                "2. For each division, extract the primary topics or sub-topics discussed.\n"
+                "3. If specific 'Learning Objectives' are listed for a unit, include them as topics.\n"
+                "4. Return ONLY a valid JSON object. No conversation, no backticks, no preamble.\n\n"
+                "JSON STRUCTURE:\n"
+                "{\n"
+                '  "units": [\n'
+                '    {\n'
+                '      "title": "Unit X: Full Title",\n'
+                '      "topics": ["Topic A", "Topic B"]\n'
+                '    }\n'
+                '  ]\n'
+                "}\n\n"
+                "If no structure is found, return {\"units\": []}."
             )
             
-            out = response.strip()
+            token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
+            client = InferenceClient(token=token, timeout=90)
             
-            # More robust JSON extraction using regex
+            primary_model = current_app.config.get("HF_SYLLABUS_MODEL") if current_app else Config.HF_SYLLABUS_MODEL
+            fallbacks = [
+                primary_model,
+                "mistralai/Mistral-7B-Instruct-v0.3",
+                "Qwen/Qwen2.5-7B-Instruct",
+                "google/gemma-2-9b-it",
+                "meta-llama/Llama-3.2-3B-Instruct"
+            ]
+
+            out = ""
+            for mdl in fallbacks:
+                if not mdl: continue
+                try:
+                    messages = [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"Syllabus Text:\n{processed_text}\n\nStrict JSON Knowledge Map:"}
+                    ]
+                    response = client.chat_completion(
+                        messages=messages,
+                        model=mdl,
+                        max_tokens=2500,
+                        temperature=0.1
+                    )
+                    
+                    if hasattr(response, 'choices'):
+                        out = response.choices[0].message.content
+                    else:
+                        out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
+                    
+                    if out and len(out.strip()) > 5:
+                        break # Success
+                except Exception as e:
+                    logging.warning(f"Syllabus extraction attempt with {mdl} failed: {e}")
+                    continue
+
+            if not out:
+                return '{"units": []}'
+
+            out = out.strip()
+            
+            # Extract JSON from potential markdown blocks or noise
             import re
-            json_match = re.search(r'(\{.*\}|\[.*\])', out, re.DOTALL)
+            # Try to find the first { and last }
+            json_match = re.search(r'(\{.*\})', out, re.DOTALL)
             if json_match:
                 out = json_match.group(1)
             else:
-                # Fallback to backtick cleaning if regex fails
-                if "```json" in out:
-                    out = out.split("```json")[1].split("```")[0].strip()
-                elif "```" in out:
-                    out = out.split("```")[1].split("```")[0].strip()
-            
-            # Validate JSON before returning
+                # Fallback cleaning
+                out = re.sub(r'```json\s*|\s*```', '', out).strip()
+
+            # Final validation
             try:
-                import json
-                json.loads(out)
-                return out
+                json_data = json.loads(out)
+                if 'units' not in json_data:
+                    json_data = {"units": []}
+                return json.dumps(json_data)
             except Exception as e:
-                logging.error(f"Syllabus analysis returned invalid JSON: {e}\nOutput snippet: {out[:200]}...")
+                logging.error(f"Syllabus analysis returned invalid JSON content: {e}")
                 return '{"units": []}'
                 
         except Exception as e:
-            logging.error(f"Syllabus analysis failed: {e}")
+            logging.error(f"Syllabus analysis critical failure: {e}")
             return '{"units": []}'
