@@ -87,18 +87,22 @@ def chat():
                 'sources': []
             })
 
-        # 2.2 Query Rewriting (Contextual Search)
+        # 2.2 Query Parameters & Rewriting
+        course = (data.get('course') or user.pref_course or '').strip()
+        semester = (data.get('semester') or user.pref_semester or '').strip()
+        subject = (data.get('subject') or user.pref_subject or '').strip()
+
         search_query = ai_service.rewrite_query(question, history) if history else question
         
-        # Get embeddings for search query (not necessarily the original question)
+        # Get embeddings for search query
         query_emb = ai_service.get_embeddings([search_query])[0]
         
         # Search static vectors with subject-level grounding
         search_filter = {}
         if mode == 'syllabus':
-            if user.pref_course: search_filter['course'] = user.pref_course
-            if user.pref_semester: search_filter['semester'] = user.pref_semester
-            if user.pref_subject: search_filter['subject'] = user.pref_subject
+            if course: search_filter['course'] = course
+            if semester: search_filter['semester'] = semester
+            if subject: search_filter['subject'] = subject
             
         results = vector_store.search(query_emb, k=10, filter=search_filter if search_filter else None)
         
@@ -133,16 +137,16 @@ def chat():
                                     live_context += f"\n[LIVE DATA FROM {page_url}]:\n{text[:2000]}\n"
                 except Exception as le:
                     logging.warning(f"Live search failed: {le}")
-
+        
         # 2.7 Fetch Master Syllabus Structure for Grounding
         syllabus_structure = None
-        if mode == 'syllabus' and user.pref_course and user.pref_semester and user.pref_subject:
+        if mode == 'syllabus' and course and semester and subject:
             from app.models import Document
             from sqlalchemy import func
             master_doc = Document.query.filter(
-                func.lower(Document.course) == func.lower(user.pref_course),
-                func.lower(Document.semester) == func.lower(user.pref_semester),
-                func.lower(Document.subject) == func.lower(user.pref_subject),
+                func.lower(Document.course) == func.lower(course),
+                func.lower(Document.semester) == func.lower(semester),
+                func.lower(Document.subject) == func.lower(subject),
                 Document.doc_type == 'syllabus'
             ).first()
             if master_doc and master_doc.structure_json:
@@ -159,9 +163,9 @@ def chat():
             mode=mode,
             history=history,
             user_preferred_name=user.preferred_name,
-            course=user.pref_course,
-            semester=user.pref_semester,
-            subject=user.pref_subject,
+            course=course,
+            semester=semester,
+            subject=subject,
             syllabus_context=syllabus_structure
         )
         
