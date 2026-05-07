@@ -379,8 +379,9 @@
         if (pollingInterval) return;
         pollingInterval = setInterval(async () => {
             const res = await fetch('/api/admin/documents');
-            const docs = await res.json();
-            const webDocs = (docs || []).filter(d => (d.filename || '').startsWith('[WEB]'));
+            const data = await res.json();
+            const items = data.items || [];
+            const webDocs = items.filter(d => (d.filename || '').startsWith('[WEB]'));
             renderWebDocs(webDocs);
             
             const stillProcessing = webDocs.some(d => d.status === 'processing' || d.status === 'pending');
@@ -395,7 +396,8 @@
         try {
             const res = await fetch('/api/admin/documents');
             const data = await res.json();
-            const webDocs = (data || []).filter(d => (d.filename || '').startsWith('[WEB]'));
+            const items = data.items || [];
+            const webDocs = items.filter(d => (d.filename || '').startsWith('[WEB]'));
             renderWebDocs(webDocs);
             
             if (!document.getElementById('content-indexed').classList.contains('hidden')) {
