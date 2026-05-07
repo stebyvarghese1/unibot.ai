@@ -3,6 +3,7 @@ import pypdf
 from docx import Document as DocxDocument
 from pptx import Presentation
 from io import BytesIO
+from app.services.ai_service import AIService
 
 class DocumentProcessor:
     @staticmethod
@@ -75,7 +76,6 @@ class DocumentProcessor:
 
     @staticmethod
     def _extract_pdf_bytes(bio: BytesIO):
-        from app.services.ai_service import AIService
         text = ""
         reader = pypdf.PdfReader(bio)
         for page in reader.pages:
@@ -143,5 +143,4 @@ class DocumentProcessor:
     @staticmethod
     def analyze_syllabus_structure(text: str) -> str:
         """Call AI service to extract syllabus units/topics."""
-        from app.services.ai_service import AIService
         return AIService.analyze_syllabus_text(text)
