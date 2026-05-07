@@ -147,8 +147,9 @@ def chat():
                 func.lower(Document.course) == func.lower(course),
                 func.lower(Document.semester) == func.lower(semester),
                 func.lower(Document.subject) == func.lower(subject),
-                Document.doc_type == 'syllabus'
-            ).first()
+                Document.doc_type == 'syllabus',
+                Document.status == 'processed'
+            ).order_by(Document.created_at.desc()).first()
             if master_doc and master_doc.structure_json:
                 syllabus_structure = master_doc.structure_json
 
