@@ -218,14 +218,8 @@ def delete_filter_option(opt_id):
             # Flush document deletions before hierarchy purge
             db.session.flush()
 
-        # 3. Recursive deletion of filter options (Course -> Semesters -> Subjects)
-        def delete_recursive(o):
-            # Convert to list to avoid 'stale collection' errors during iteration
-            for child in list(o.children):
-                delete_recursive(child)
-            db.session.delete(o)
-            
-        delete_recursive(opt)
+        # 3. Purge hierarchy (Cascades in models.py handle recursive children)
+        db.session.delete(opt)
         db.session.commit()
         
         # 4. Invalidate caches
@@ -261,7 +255,6 @@ def get_stats():
 def rebuild_index():
     try:
         from app.utils.background_tasks import TaskTracker
-        # Check if already running
         status = TaskTracker.get_status("rebuild")
         if status.get('is_running'):
             return jsonify({'error': 'A rebuild operation is already in progress'}), 400
