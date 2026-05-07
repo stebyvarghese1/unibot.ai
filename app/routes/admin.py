@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify, session, current_app
 from app import db
 from app.models import User, Document, DocumentChunk, FilterOption
-from app.services.index_rebuilder import rebuild_index_from_db
+# Lazy import to avoid circular dependency
+# from app.services.index_rebuilder import rebuild_index_from_db
 from app.utils.background_tasks import run_background_task
 from app.routes.auth import admin_required
 import time
@@ -265,6 +266,7 @@ def rebuild_index():
         if status.get('is_running'):
             return jsonify({'error': 'A rebuild operation is already in progress'}), 400
             
+        from app.services.index_rebuilder import rebuild_index_from_db
         run_background_task(rebuild_index_from_db)
         return jsonify({'message': 'Index rebuild started in the background'})
     except Exception as e:
@@ -540,7 +542,7 @@ def syllabus_intelligence():
     semester = request.args.get('semester')
     subject = request.args.get('subject')
     
-    from sqlalchemy import func
+    from sqlalchemy import func, case
     # 1. Find the best candidate (processed first)
     doc = Document.query.filter(
         func.lower(Document.course) == func.lower(course),
@@ -549,7 +551,7 @@ def syllabus_intelligence():
         Document.doc_type == 'syllabus'
     ).order_by(
         # Put processed documents first
-        func.case(
+        case(
             [(Document.status == 'processed', 0)], 
             else_=1
         ),
