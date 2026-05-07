@@ -552,7 +552,7 @@ def syllabus_intelligence():
     ).order_by(
         # Put processed documents first
         case(
-            [(Document.status == 'processed', 0)], 
+            (Document.status == 'processed', 0), 
             else_=1
         ),
         Document.created_at.desc()
