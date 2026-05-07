@@ -61,7 +61,8 @@ def process_website_task(doc_id, url, filename):
                 'text': c.chunk_text,
                 'doc_id': doc_id,
                 'chunk_id': c.id,
-                'filename': filename
+                'filename': filename,
+                'doc_type': doc.doc_type if doc else 'general'
             })
             
         if all_chunk_texts:
@@ -103,7 +104,7 @@ def add_website():
             course=course,
             semester=semester,
             subject=subject,
-            doc_type='syllabus'
+            doc_type='general' if course == 'General Mode' else 'syllabus'
         )
         db.session.add(new_doc)
         db.session.commit()
