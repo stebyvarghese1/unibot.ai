@@ -1119,5 +1119,17 @@
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }
+
+  /* Premium Deletion Animation */
+  .item-deleting {
+    animation: item-exit 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    pointer-events: none;
+  }
+
+  @keyframes item-exit {
+    0% { transform: scale(1); opacity: 1; height: auto; margin-bottom: 0.5rem; }
+    50% { transform: scale(0.95); opacity: 0.5; }
+    100% { transform: scale(0.9); opacity: 0; height: 0; margin-bottom: 0; padding: 0; overflow: hidden; }
+  }
 </style>
 {% endblock %}
