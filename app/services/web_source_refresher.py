@@ -92,7 +92,8 @@ class WebSourceRefresher:
                                 'doc_id': doc.id,
                                 'chunk_id': None, # Updated after commit
                                 'url': page_url,
-                                'filename': doc.filename
+                                'filename': doc.filename,
+                                'doc_type': doc.doc_type
                             })
                             total_chunks += 1
 
