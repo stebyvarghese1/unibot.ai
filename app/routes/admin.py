@@ -286,7 +286,8 @@ def list_documents():
     if subject:
         query = query.filter(Document.subject.ilike(subject))
         
-    pagination = query.order_by(Document.upload_date.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    from sqlalchemy.orm import selectinload
+    pagination = query.options(selectinload(Document.chunks)).order_by(Document.upload_date.desc()).paginate(page=page, per_page=per_page, error_out=False)
     
     return jsonify({
         'items': [d.to_dict() for d in pagination.items],
