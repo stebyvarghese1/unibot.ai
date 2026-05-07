@@ -160,62 +160,80 @@ def handle_filter_options():
 def delete_filter_option(opt_id):
     try:
         opt = FilterOption.query.get(opt_id)
-        if not not opt:
-            # 1. Identify associated documents scope
-            target_course = None
-            target_semester = None
-            target_subject = None
+        if not opt:
+            return jsonify({'error': 'Filter option not found'}), 404
             
-            curr = opt
-            while curr:
-                if curr.category == 'course': target_course = curr.value
-                elif curr.category == 'semester': target_semester = curr.value
-                elif curr.category == 'subject': target_subject = curr.value
-                curr = curr.parent
-
-            # 2. Find and clean up documents matching this hierarchy path
-            from sqlalchemy import func
-            doc_query = Document.query
-            if target_course: doc_query = doc_query.filter(func.lower(Document.course) == func.lower(target_course))
-            if target_semester: doc_query = doc_query.filter(func.lower(Document.semester) == func.lower(target_semester))
-            if target_subject: doc_query = doc_query.filter(func.lower(Document.subject) == func.lower(target_subject))
-            
-            docs_to_delete = doc_query.all()
-            
-            if docs_to_delete:
-                from app.services.supabase_service import SupabaseService
-                from app.services.vector_store import VectorStore
-                supa = SupabaseService()
-                vs = VectorStore.get_instance()
-                
-                for doc in docs_to_delete:
-                    # Supabase Storage
-                    if doc.file_path and not str(doc.file_path).startswith(('http://', 'https://')):
-                        try: supa.delete_file(doc.file_path)
-                        except: pass
-                    # Vector Store
-                    try: vs.remove_document(doc.id)
-                    except: pass
-                    # DB Chunks & Document
-                    DocumentChunk.query.filter_by(document_id=doc.id).delete()
-                    db.session.delete(doc)
-
-        if not opt: return jsonify({'error': 'Not found'}), 404
+        # 1. Identify associated documents scope by traversing up the hierarchy
+        target_course = None
+        target_semester = None
+        target_subject = None
         
-        # Recursive deletion of filter options (Course -> Semesters -> Subjects)
+        curr = opt
+        while curr:
+            if curr.category == 'course': target_course = curr.value
+            elif curr.category == 'semester': target_semester = curr.value
+            elif curr.category == 'subject': target_subject = curr.value
+            curr = curr.parent
+
+        # 2. Find and clean up documents matching this hierarchy path
+        from sqlalchemy import func
+        doc_query = Document.query
+        
+        # We only filter by the specific levels identified by the selected option's branch
+        if target_course: 
+            doc_query = doc_query.filter(func.lower(Document.course) == func.lower(target_course))
+        if target_semester: 
+            doc_query = doc_query.filter(func.lower(Document.semester) == func.lower(target_semester))
+        if target_subject: 
+            doc_query = doc_query.filter(func.lower(Document.subject) == func.lower(target_subject))
+        
+        docs_to_delete = doc_query.all()
+        
+        if docs_to_delete:
+            from app.services.supabase_service import SupabaseService
+            from app.services.vector_store import VectorStore
+            supa = SupabaseService()
+            vs = VectorStore.get_instance()
+            
+            for doc in docs_to_delete:
+                # 2.1 Remove from Supabase Storage
+                if doc.file_path and not str(doc.file_path).startswith(('http://', 'https://')):
+                    try:
+                        supa.delete_file(doc.file_path)
+                    except Exception as se:
+                        logging.warning(f"Failed to delete storage file {doc.file_path}: {se}")
+                
+                # 2.2 Remove from Vector Store (embeddings)
+                try:
+                    vs.remove_document(doc.id)
+                except Exception as ve:
+                    logging.warning(f"Failed to remove vectors for doc {doc.id}: {ve}")
+                
+                # 2.3 DB cleanup (Chunks are handled by cascade in models, but we ensure order)
+                DocumentChunk.query.filter_by(document_id=doc.id).delete()
+                db.session.delete(doc)
+            
+            # Flush document deletions before hierarchy purge
+            db.session.flush()
+
+        # 3. Recursive deletion of filter options (Course -> Semesters -> Subjects)
         def delete_recursive(o):
-            for child in o.children:
+            # Convert to list to avoid 'stale collection' errors during iteration
+            for child in list(o.children):
                 delete_recursive(child)
             db.session.delete(o)
             
         delete_recursive(opt)
         db.session.commit()
         
+        # 4. Invalidate caches
         global _FILTERS_CACHE
         _FILTERS_CACHE = None
-        return jsonify({'message': 'Hierarchy branch and associated data purged successfully'})
+        
+        return jsonify({'message': 'Filter and all associated academic data purged successfully'})
     except Exception as e:
         db.session.rollback()
+        logging.error(f"Error in delete_filter_option: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @admin_bp.route('/api/admin/stats', methods=['GET'])
