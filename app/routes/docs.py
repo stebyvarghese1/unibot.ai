@@ -19,8 +19,6 @@ def allowed_file(filename):
 
 def process_document_task(doc_id):
     """Internal task for processing a document in the background"""
-    from app.services.document_processor import DocumentProcessor
-    from app.services.vector_store import VectorStore
     import json
     
     doc = Document.query.get(doc_id)
