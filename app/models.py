@@ -194,7 +194,7 @@ class FilterOption(db.Model):
     value = db.Column(db.String(100), nullable=False)
     parent_id = db.Column(db.Integer, db.ForeignKey('public.filter_options.id'), nullable=True)
     
-    children = db.relationship('FilterOption', backref=db.backref('parent', remote_side=[id]), lazy=True)
+    children = db.relationship('FilterOption', backref=db.backref('parent', remote_side=[id]), lazy=True, cascade="all, delete-orphan")
     
     def to_dict(self):
         return {
