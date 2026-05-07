@@ -45,23 +45,31 @@ def process_document_task(doc_id):
         # 3. Analyze Syllabus Structure (Intelligence Grounding)
         if doc.doc_type == 'syllabus':
             logging.info(f"🧠 Extracting Intelligence Schema for: {doc.filename}")
+            # Initialize with empty structure to prevent UI hanging
+            doc.structure_json = json.dumps({"units": []})
+            db.session.commit()
+            
             try:
                 # Use the AI Service to find Units and Topics
                 structure_data_raw = DocumentProcessor.analyze_syllabus_structure(text)
                 if structure_data_raw:
-                    doc.structure_json = structure_data_raw
-                    
-                    # 3.1 Embed Units/Modules specifically (Intelligence Grounding)
+                    # Validate JSON before saving
                     try:
                         structure_data = json.loads(structure_data_raw)
                         if 'units' in structure_data:
+                            doc.structure_json = structure_data_raw
+                            db.session.commit()
+                            
+                            # 3.1 Embed Units/Modules specifically (Intelligence Grounding)
                             vector_store = VectorStore.get_instance()
                             unit_texts = []
                             unit_metas = []
                             
                             for unit in structure_data['units']:
                                 title = unit.get('title', 'Unknown Unit')
-                                topics = ", ".join(unit.get('topics', []))
+                                topics_list = unit.get('topics', [])
+                                if not isinstance(topics_list, list): topics_list = []
+                                topics = ", ".join(topics_list)
                                 unit_summary = f"UNIT SYLLABUS: {title}\nTOPICS: {topics}"
                                 
                                 unit_texts.append(unit_summary)
@@ -79,11 +87,10 @@ def process_document_task(doc_id):
                             if unit_texts:
                                 logging.info(f"📡 Embedding {len(unit_texts)} units for structural grounding.")
                                 vector_store.add_texts(unit_texts, unit_metas)
-                                
+                            
+                        logging.info(f"✅ Intelligence Grounded for {doc.subject}")
                     except Exception as je:
                         logging.error(f"Failed to parse or embed unit structure: {je}")
-                    
-                    logging.info(f"✅ Intelligence Grounded for {doc.subject}")
             except Exception as e:
                 logging.error(f"Failed to analyze syllabus structure: {e}")
 
@@ -212,3 +219,81 @@ def delete_document(doc_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+@docs_bp.route('/api/admin/documents/<int:doc_id>/reprocess', methods=['POST'])
+@admin_required
+def reprocess_document(doc_id):
+    """Manually re-trigger the intelligence extraction and vector indexing for a document."""
+    try:
+        doc = Document.query.get(doc_id)
+        if not doc:
+            return jsonify({'error': 'Document not found'}), 404
+            
+        # Reset status
+        doc.status = 'pending'
+        db.session.commit()
+        
+        # Start background task
+        run_background_task(process_document_task, doc_id)
+        
+        return jsonify({'message': 'Reprocessing started', 'status': 'processing'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@docs_bp.route('/api/admin/documents/<int:doc_id>/role', methods=['PATCH'])
+@admin_required
+def update_document_role(doc_id):
+    """Switch document between 'syllabus' and 'general' types."""
+    try:
+        doc = Document.query.get(doc_id)
+        if not doc:
+            return jsonify({'error': 'Document not found'}), 404
+            
+        data = request.json
+        new_type = data.get('doc_type')
+        if new_type not in ['syllabus', 'general', 'system_info']:
+            return jsonify({'error': 'Invalid document type'}), 400
+            
+        doc.doc_type = new_type
+        db.session.commit()
+        
+        # If it was promoted to syllabus, trigger reprocessing to get units
+        if new_type == 'syllabus':
+            run_background_task(process_document_task, doc.id)
+            
+        return jsonify({'message': f'Document role updated to {new_type}'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@docs_bp.route('/api/admin/documents', methods=['GET'])
+@admin_required
+def list_documents():
+    """List documents with pagination and filtering."""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    search = request.args.get('search', '').strip()
+    course = request.args.get('course', '').strip()
+    semester = request.args.get('semester', '').strip()
+    subject = request.args.get('subject', '').strip()
+    
+    query = Document.query
+    
+    if search:
+        query = query.filter(Document.filename.ilike(f"%{search}%"))
+    if course:
+        query = query.filter(Document.course == course)
+    if semester:
+        query = query.filter(Document.semester == semester)
+    if subject:
+        query = query.filter(Document.subject == subject)
+        
+    pagination = query.order_by(Document.upload_date.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    
+    return jsonify({
+        'items': [d.to_dict() for d in pagination.items],
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'current_page': pagination.page
+    })
