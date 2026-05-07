@@ -731,7 +731,7 @@
       li.onclick = () => selectCourse(item.id);
       li.innerHTML = `
         <span class="text-[10px] font-black uppercase tracking-widest ${active ? 'text-indigo-400' : 'text-slate-500'} group-hover:text-white">${item.value}</span>
-        <button onclick="deleteFilter(${item.id}, event)" class="p-1.5 opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-all"><i class="fa-solid fa-trash text-[8px]"></i></button>
+        <button onclick="event.stopPropagation(); deleteFilter(${item.id}, event)" class="p-1.5 opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-all"><i class="fa-solid fa-trash text-[8px]"></i></button>
       `;
       fragment.appendChild(li);
     });
@@ -756,7 +756,7 @@
       li.onclick = () => selectSemester(item.id);
       li.innerHTML = `
         <span class="text-[10px] font-black uppercase tracking-widest ${active ? 'text-violet-400' : 'text-slate-500'} group-hover:text-white">${item.value}</span>
-        <button onclick="deleteFilter(${item.id}, event)" class="p-1.5 opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-all"><i class="fa-solid fa-trash text-[8px]"></i></button>
+        <button onclick="event.stopPropagation(); deleteFilter(${item.id}, event)" class="p-1.5 opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-all"><i class="fa-solid fa-trash text-[8px]"></i></button>
       `;
       fragment.appendChild(li);
     });
@@ -780,7 +780,7 @@
       li.onclick = () => loadSyllabusIntelligence(item.id, item.value);
       li.innerHTML = `
         <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-emerald-400">${item.value}</span>
-        <button onclick="deleteFilter(${item.id}, event)" class="p-1.5 opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-all"><i class="fa-solid fa-trash text-[8px]"></i></button>
+        <button onclick="event.stopPropagation(); deleteFilter(${item.id}, event)" class="p-1.5 opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-all"><i class="fa-solid fa-trash text-[8px]"></i></button>
       `;
       fragment.appendChild(li);
     });
@@ -1018,9 +1018,9 @@
     }
   }
 
-  async function deleteFilter(id, btn) {
+  async function deleteFilter(id, event) {
     if (!confirm('Permanently decommission this logic path?')) return;
-    const target = btn ? btn.closest('li') : null;
+    const target = event && event.currentTarget ? event.currentTarget.closest('li') : null;
     try {
       const res = await fetch(`/api/admin/filter-options/${id}`, { 
         method: 'DELETE',
