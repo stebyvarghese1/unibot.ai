@@ -148,6 +148,7 @@ def handle_filter_options():
                 return jsonify({'error': 'A syllabus file must be uploaded as multipart/form-data.'}), 400
 
         db.session.commit()
+        global _FILTERS_CACHE
         _FILTERS_CACHE = None # Invalidate cache
         return jsonify({'message': 'Option created', 'id': new_opt.id})
     except Exception as e:
