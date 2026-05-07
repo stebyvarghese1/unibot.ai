@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify, session, current_app
 from app import db, limiter
 from app.models import ChatMessage, ChatSession, User
-from app.services.ai_service import AIService
-from app.services.vector_store import VectorStore
+# Lazy imports to avoid circular dependency on startup
+# from app.services.ai_service import AIService
+# from app.services.vector_store import VectorStore
 from app.routes.auth import login_required
 import uuid
 import json
@@ -52,7 +53,10 @@ def chat():
                 history.append({"role": "user", "content": m.question})
                 history.append({"role": "assistant", "content": m.answer})
 
-        # 2. Retrieval & AI Service Init
+        # 2. Retrieval & AI Service Init (Lazy Loaded)
+        from app.services.ai_service import AIService
+        from app.services.vector_store import VectorStore
+        
         vector_store = VectorStore.get_instance()
         ai_service = AIService()
         
