@@ -186,6 +186,19 @@
   let selectedSemesterId = null;
 
   // Stats loader
+  async function loadAllFilters() {
+    try {
+      const res = await fetch('/api/admin/filter-options');
+      const data = await res.json();
+      allFilters = data.all || [];
+    } catch (e) { console.error('Error loading filters', e); }
+  }
+
+  // Initial load
+  loadAllFilters();
+  loadStats();
+
+  // Stats loader
   async function loadStats() {
     try {
       const res = await fetch('/api/admin/stats');
@@ -1021,6 +1034,7 @@
             if (selectedSemesterId === id) { selectedSemesterId = null; }
             resetDetailView();
             await loadFilterOptions();
+            if (typeof loadAllFilters === 'function') await loadAllFilters();
           }, 400);
         } else {
           if (selectedCourseId === id) { selectedCourseId = null; selectedSemesterId = null; }
