@@ -541,15 +541,20 @@ def syllabus_intelligence():
     subject = request.args.get('subject')
     
     from sqlalchemy import func
-    master_doc = Document.query.filter(
+    # 1. Find the best candidate (processed first)
+    doc = Document.query.filter(
         func.lower(Document.course) == func.lower(course),
         func.lower(Document.semester) == func.lower(semester),
         func.lower(Document.subject) == func.lower(subject),
-        Document.doc_type == 'syllabus',
-        Document.status == 'processed'
-    ).order_by(Document.created_at.desc()).first()
-    
-    doc = master_doc
+        Document.doc_type == 'syllabus'
+    ).order_by(
+        # Put processed documents first
+        func.case(
+            [(Document.status == 'processed', 0)], 
+            else_=1
+        ),
+        Document.created_at.desc()
+    ).first()
     if not doc:
         return jsonify({'status': 'missing'})
         
