@@ -107,6 +107,9 @@ def chat():
             if course: search_filter['course'] = course
             if semester: search_filter['semester'] = semester
             if subject: search_filter['subject'] = subject
+        elif mode == 'general':
+            # Strictly limit to content from admin-configured websites
+            search_filter['doc_type'] = 'general'
             
         results = vector_store.search(query_emb, k=10, filter=search_filter if search_filter else None)
         
