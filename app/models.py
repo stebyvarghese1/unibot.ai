@@ -67,7 +67,8 @@ class Document(db.Model):
             'course': self.course,
             'semester': self.semester,
             'subject': self.subject,
-            'doc_type': self.doc_type
+            'doc_type': self.doc_type,
+            'chunk_count': len(self.chunks) if self.chunks else 0
         }
 
 class DocumentChunk(db.Model):
