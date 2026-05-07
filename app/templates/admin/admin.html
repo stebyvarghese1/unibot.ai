@@ -861,13 +861,14 @@
                     data.structure.units.forEach(unit => {
                         const div = document.createElement('div');
                         div.className = 'bg-slate-950/40 rounded-[2rem] p-8 border border-white/5 hover:border-indigo-500/30 transition-all group';
+                        const topics = Array.isArray(unit.topics) ? unit.topics : [];
                         div.innerHTML = `
                             <div class="flex items-center gap-4 mb-6">
                                 <div class="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(79,70,229,0.5)] group-hover:scale-125 transition-transform"></div>
-                                <span class="text-xs font-black text-white uppercase tracking-[0.15em]">${unit.title}</span>
+                                <span class="text-xs font-black text-white uppercase tracking-[0.15em]">${unit.title || 'Untitled Unit'}</span>
                             </div>
                             <div class="flex flex-wrap gap-2 pl-6 border-l border-white/5">
-                                ${unit.topics.map(t => `<span class="topic-chip">${t}</span>`).join('')}
+                                ${topics.map(t => `<span class="topic-chip">${t}</span>`).join('')}
                             </div>
                         `;
                         unitsContainer.appendChild(div);
