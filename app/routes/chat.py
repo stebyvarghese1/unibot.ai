@@ -135,46 +135,56 @@ def chat():
         
         # 2.7 Fetch Master Syllabus Structure for Grounding
         syllabus_structure = None
-        if mode == 'syllabus' and course and semester and subject:
+        if mode == 'syllabus':
             from app.models import Document
             from sqlalchemy import func
             
             # Use stripped and lowercase versions for better matching
-            c_low = course.strip().lower()
-            s_low = semester.strip().lower()
-            sub_low = subject.strip().lower()
+            c_low = (course or "").strip().lower()
+            s_low = (semester or "").strip().lower()
+            sub_low = (subject or "").strip().lower()
             
-            master_doc = Document.query.filter(
-                func.lower(Document.course) == c_low,
-                func.lower(Document.semester) == s_low,
-                func.lower(Document.subject) == sub_low,
-                Document.doc_type == 'syllabus',
-                Document.status == 'processed'
-            ).order_by(Document.created_at.desc()).first()
-            
-            if master_doc and master_doc.structure_json:
-                syllabus_structure = master_doc.structure_json
-                # Update filters to match the exact casing in the DB for better vector matching
-                course = master_doc.course
-                semester = master_doc.semester
-                subject = master_doc.subject
-            else:
-                # Try a slightly looser match for subject if no direct hit (e.g. if subject in DB has codes)
+            # Try 1: Strict Match (Course + Semester + Subject)
+            if c_low and s_low and sub_low:
                 master_doc = Document.query.filter(
                     func.lower(Document.course) == c_low,
                     func.lower(Document.semester) == s_low,
+                    func.lower(Document.subject) == sub_low,
+                    Document.doc_type == 'syllabus',
+                    Document.status == 'processed'
+                ).order_by(Document.created_at.desc()).first()
+                
+                if master_doc and master_doc.structure_json:
+                    syllabus_structure = master_doc.structure_json
+                    course, semester, subject = master_doc.course, master_doc.semester, master_doc.subject
+            
+            # Try 2: Loose Match (Subject + Course) if strict failed or filters incomplete
+            if not syllabus_structure and sub_low:
+                query = Document.query.filter(
+                    func.lower(Document.subject) == sub_low,
+                    Document.doc_type == 'syllabus',
+                    Document.status == 'processed'
+                )
+                if c_low:
+                    query = query.filter(func.lower(Document.course) == c_low)
+                
+                master_doc = query.order_by(Document.created_at.desc()).first()
+                if master_doc and master_doc.structure_json:
+                    syllabus_structure = master_doc.structure_json
+                    course, semester, subject = master_doc.course, master_doc.semester, master_doc.subject
+            
+            # Try 3: Very Loose Match (Subject only) as last resort
+            if not syllabus_structure and sub_low:
+                master_doc = Document.query.filter(
                     Document.subject.ilike(f"%{subject.strip()}%"),
                     Document.doc_type == 'syllabus',
                     Document.status == 'processed'
                 ).order_by(Document.created_at.desc()).first()
                 if master_doc and master_doc.structure_json:
                     syllabus_structure = master_doc.structure_json
-                    # Align filters with DB casing
-                    course = master_doc.course
-                    semester = master_doc.semester
-                    subject = master_doc.subject
+                    course, semester, subject = master_doc.course, master_doc.semester, master_doc.subject
 
-        # Update search filter with finalized values
+        # Update search filter with finalized values for vector retrieval
         search_filter = {}
         if mode == 'syllabus':
             if course: search_filter['course'] = course
