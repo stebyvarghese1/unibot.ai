@@ -141,18 +141,20 @@ class AIService:
                 "5. INTELLIGENT GROUNDING: Use the provided context to answer. " + 
                 (f"In {mode.upper()} mode, you MUST stick strictly to the provided context from official university websites. If the information is not in the context, politely state that you cannot find that information on the official portals." if mode == 'general' else 
                  "If the context doesn't contain the answer, use your general knowledge to provide a helpful response, but clearly distinguish it if it's not from official sources.") + "\n" +
-                "6. HELPFULNESS: Never be dismissive. If you don't know something, suggest where the user might find it or offer related helpful information.\n"
-                "7. FORMATTING: Use professional Markdown. Use bold for key terms and bullet points for lists."
+                "6. SYLLABUS PRIORITY: For questions about curriculum structure, Units, Modules, or specific topics, you MUST prioritize the **SYLLABUS GROUNDING** section over general knowledge. Provide the topics exactly as listed in the official curriculum.\n"
+                "7. HELPFULNESS: Never be dismissive. If you don't know something, suggest where the user might find it or offer related helpful information.\n"
+                "8. FORMATTING: Use professional Markdown. Use bold for key terms and bullet points for lists."
             )
 
         if syllabus_context:
             course_label = (course or "Academic").upper()
             sys_prompt += (
-                f"\n\nSYLLABUS GROUNDING (Subject: {subject or course_label}):\n"
+                f"\n\n### SYLLABUS GROUNDING (Subject: {subject or course_label})\n"
                 f"{syllabus_context}\n"
-                "The above block is the structured JSON syllabus for this subject. Use it to verify if a topic is officially part of the curriculum. "
-                "If the user asks about a specific UNIT or MODULE, refer to this structure. "
-                "If a user's question relates to a topic NOT in this structure, provide a helpful answer from the provided context but clarify it may be outside the core syllabus."
+                "The above JSON block is the **OFFICIAL STRUCTURE** for this subject. \n"
+                " - If the user asks 'what are the topics', 'give me the syllabus', or 'what is in Module/Unit X', you MUST use the titles and topics from this JSON.\n"
+                " - Maintain the exact terminology used in the JSON.\n"
+                " - If the JSON topics are detailed, include that detail in your answer."
             )
 
         # Build messages
@@ -444,9 +446,10 @@ class AIService:
                 "INSTRUCTIONS:\n"
                 "1. SCAN: Thoroughly scan the text for 'Unit', 'Module', 'Chapter', or 'Section' headings.\n"
                 "2. EXTRACT: For each major division, capture its full title and ALL specific topics, sub-topics, or keywords mentioned under it.\n"
-                "3. OBJECTIVES: Include 'Learning Objectives' or 'Expected Outcomes' as topics if they are listed specifically for a unit.\n"
-                "4. PRECISION: If no clear unit headings exist, logically group the curriculum content into coherent modules based on subject matter.\n"
-                "5. OUTPUT: You MUST return ONLY a valid JSON object. No prose, no code blocks, no preamble.\n\n"
+                "3. PRECISION: Maintain the **EXACT wording and terminology** of the topics as found in the syllabus. Do not summarize, paraphrase, or use generic textbook names for topics.\n"
+                "4. OBJECTIVES: Include 'Learning Objectives' or 'Expected Outcomes' as topics if they are listed specifically for a unit.\n"
+                "5. LOGIC: If no clear unit headings exist, logically group the curriculum content into coherent modules based on subject matter.\n"
+                "6. OUTPUT: You MUST return ONLY a valid JSON object. No prose, no code blocks, no preamble.\n\n"
                 "JSON FORMAT:\n"
                 "{\n"
                 '  "units": [\n'
