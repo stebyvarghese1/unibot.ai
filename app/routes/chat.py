@@ -101,18 +101,6 @@ def chat():
         # Get embeddings for search query
         query_emb = ai_service.get_embeddings([search_query])[0]
         
-        # Search static vectors with subject-level grounding
-        search_filter = {}
-        if mode == 'syllabus':
-            if course: search_filter['course'] = course
-            if semester: search_filter['semester'] = semester
-            if subject: search_filter['subject'] = subject
-        elif mode == 'general':
-            # Strictly limit to content from admin-configured websites
-            search_filter['doc_type'] = 'general'
-            
-        results = vector_store.search(query_emb, k=10, filter=search_filter if search_filter else None)
-        
         # 2.5 Live Search (General Mode Only)
         live_context = ""
         if mode == 'general':
@@ -150,17 +138,55 @@ def chat():
         if mode == 'syllabus' and course and semester and subject:
             from app.models import Document
             from sqlalchemy import func
+            
+            # Use stripped and lowercase versions for better matching
+            c_low = course.strip().lower()
+            s_low = semester.strip().lower()
+            sub_low = subject.strip().lower()
+            
             master_doc = Document.query.filter(
-                func.lower(Document.course) == func.lower(course),
-                func.lower(Document.semester) == func.lower(semester),
-                func.lower(Document.subject) == func.lower(subject),
+                func.lower(Document.course) == c_low,
+                func.lower(Document.semester) == s_low,
+                func.lower(Document.subject) == sub_low,
                 Document.doc_type == 'syllabus',
                 Document.status == 'processed'
             ).order_by(Document.created_at.desc()).first()
+            
             if master_doc and master_doc.structure_json:
                 syllabus_structure = master_doc.structure_json
+                # Update filters to match the exact casing in the DB for better vector matching
+                course = master_doc.course
+                semester = master_doc.semester
+                subject = master_doc.subject
+            else:
+                # Try a slightly looser match for subject if no direct hit (e.g. if subject in DB has codes)
+                master_doc = Document.query.filter(
+                    func.lower(Document.course) == c_low,
+                    func.lower(Document.semester) == s_low,
+                    Document.subject.ilike(f"%{subject.strip()}%"),
+                    Document.doc_type == 'syllabus',
+                    Document.status == 'processed'
+                ).order_by(Document.created_at.desc()).first()
+                if master_doc and master_doc.structure_json:
+                    syllabus_structure = master_doc.structure_json
+                    # Align filters with DB casing
+                    course = master_doc.course
+                    semester = master_doc.semester
+                    subject = master_doc.subject
 
-        # 3. Generation
+        # Update search filter with finalized values
+        search_filter = {}
+        if mode == 'syllabus':
+            if course: search_filter['course'] = course
+            if semester: search_filter['semester'] = semester
+            if subject: search_filter['subject'] = subject
+        elif mode == 'general':
+            search_filter['doc_type'] = 'general'
+
+        # 3. Retrieval
+        results = vector_store.search(query_emb, k=10, filter=search_filter if search_filter else None)
+        
+        # 4. Generation
         context = "\n\n".join([r['text'] for r in results])
         if live_context:
             context = f"--- LIVE WEB DATA ---\n{live_context}\n\n--- STATIC KNOWLEDGE ---\n{context}"
