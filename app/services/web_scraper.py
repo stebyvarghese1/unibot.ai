@@ -291,9 +291,20 @@ class WebScraper:
             response.raise_for_status()
             
             text = response.text
-            # Jina returns clean text/markdown, so we don't need soup for extraction, 
-            # but we return None for soup as it's primarily used for link discovery in crawls.
-            return True, None, text
+            
+            # Since requests failed, we need to extract links from Jina's markdown so the crawler can continue.
+            # Jina converts links to markdown format: [text](url)
+            import re
+            from urllib.parse import urljoin
+            raw_urls = re.findall(r'\[.*?\]\(([^\s\)]+)\)', text)
+            urls = [urljoin(url, u) for u in raw_urls]
+            
+            # Build a dummy BeautifulSoup object so the crawler can still find 'a' tags
+            from bs4 import BeautifulSoup
+            dummy_html = "".join([f'<a href="{u}"></a>' for u in urls])
+            soup = BeautifulSoup(dummy_html, 'html.parser')
+            
+            return True, soup, text
         except Exception as e:
             logging.warning(f"Jina Reader fetch failed for {url}: {e}")
             return False, None, str(e)
@@ -373,11 +384,9 @@ class WebScraper:
                     # If requests failed or returned very little text, it might be a JS-heavy or protected page
                     # Try Jina Reader as a robust fallback
                     if not ok or not text or len(text) < 350:
-                        ok_j, _, text_j = WebScraper.fetch_one_page_jina(u)
+                        ok_j, soup_j, text_j = WebScraper.fetch_one_page_jina(u)
                         if ok_j and text_j and (not text or len(text_j) > len(text)):
-                            # If we didn't have soup from requests, we won't find links here, 
-                            # but at least we have the content for this page.
-                            return u, True, soup, text_j
+                            return u, True, soup_j, text_j
                             
                     return u, ok, soup, text
                     
