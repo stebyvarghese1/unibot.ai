@@ -159,9 +159,10 @@ class AIService:
         # Build messages
         messages = [{"role": "system", "content": sys_prompt}]
         if history: messages.extend(history)
+        context_str = context if context.strip() else "[NO CONTEXT FOUND IN KNOWLEDGE BASE. STRICT RULE: YOU MUST DECLINE TO ANSWER THIS QUESTION AS NO DATA WAS RETRIEVED.]"
         messages.append({
             "role": "user", 
-            "content": f"Context:\n{context}\n\nUser Question/Instruction: {question}\n\nAdaptive Answer:"
+            "content": f"Context:\n{context_str}\n\nUser Question/Instruction: {question}\n\nAnswer:"
         })
 
         # 1. Try Hugging Face (Primary)
@@ -237,7 +238,8 @@ class AIService:
                 messages.extend(history)
             
             # 3. Add current question
-            messages.append({"role": "user", "content": f"Webpage (Source: {source_url}):\n{context}\n\nUser Question/Instruction: {question}\n\nAdaptive Answer:"})
+            context_str = context if context.strip() else "[NO WEBPAGE CONTENT FOUND. YOU MUST STATE THE INFORMATION IS NOT ON THE PAGE.]"
+            messages.append({"role": "user", "content": f"Webpage (Source: {source_url}):\n{context_str}\n\nUser Question/Instruction: {question}\n\nAnswer:"})
 
             try:
                 llm_model = current_app.config.get("HF_LLM_MODEL") if current_app else None
