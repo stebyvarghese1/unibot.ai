@@ -203,13 +203,11 @@ def delete_document(doc_id):
         try:
             vector_store = VectorStore.get_instance()
             vector_store.remove_document(doc_id)
-            db.session.commit()
         except Exception as e:
-            db.session.rollback()
             logging.error(f"Vector deletion failed: {e}")
         
         # 3. Delete from DB (cascades will handle chunks if configured, but we'll be explicit)
-        DocumentChunk.query.filter_by(document_id=doc.id).delete()
+        DocumentChunk.query.filter_by(document_id=doc_id).delete()
         db.session.delete(doc)
         db.session.commit()
         
