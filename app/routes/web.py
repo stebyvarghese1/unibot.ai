@@ -19,7 +19,7 @@ def process_website_task(doc_id, url, filename):
     
     try:
         # 1. Scrape
-        ok, pages = WebScraper.crawl_website(url, max_pages_override=100, time_cap_override=180)
+        ok, pages = WebScraper.crawl_website(url, max_pages_override=150, time_cap_override=600)
         
         doc = Document.query.get(doc_id)
         if not ok or not pages:
