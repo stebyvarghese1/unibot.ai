@@ -162,7 +162,7 @@ class AIService:
         context_str = context if context.strip() else "[NO CONTEXT FOUND IN KNOWLEDGE BASE. STRICT RULE: YOU MUST DECLINE TO ANSWER THIS QUESTION AS NO DATA WAS RETRIEVED.]"
         messages.append({
             "role": "user", 
-            "content": f"Context:\n{context_str}\n\nUser Question/Instruction: {question}\n\nAnswer:"
+            "content": f"Context Information:\n<context>\n{context_str}\n</context>\n\nBased STRICTLY on the context above, answer the following question. If the context does not contain the answer, you MUST output exactly 'I do not have the information.'\n\nQuestion: {question}\n\nAnswer:"
         })
 
         # 1. Try Hugging Face (Primary)
