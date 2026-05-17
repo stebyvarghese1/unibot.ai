@@ -4,6 +4,10 @@ from docx import Document as DocxDocument
 from pptx import Presentation
 from io import BytesIO
 from app.services.ai_service import AIService
+import logging
+
+# Suppress pypdf encoding warnings and errors from the console
+logging.getLogger("pypdf").setLevel(logging.CRITICAL)
 
 class DocumentProcessor:
     @staticmethod
@@ -58,36 +62,53 @@ class DocumentProcessor:
     def _extract_from_pdf(file_path):
         from app.services.ai_service import AIService
         text = ""
-        with open(file_path, 'rb') as f:
-            reader = pypdf.PdfReader(f)
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
-                # Multimodal Image Captioning
-                try:
-                    if hasattr(page, 'images') and page.images:
-                        for img in page.images:
-                             # img.data contains the bytes
-                             caption = AIService.generate_image_caption(img.data)
-                             text += caption + "\n"
-                except Exception as e:
-                     # Non-blocking error for image extraction
-                     print(f"Warning: Failed to extract images from PDF page: {e}")
+        try:
+            with open(file_path, 'rb') as f:
+                reader = pypdf.PdfReader(f)
+                for page in reader.pages:
+                    try:
+                        extracted = page.extract_text()
+                        if extracted:
+                            text += extracted + "\n"
+                    except Exception as e:
+                        print(f"Warning: Failed to extract text from PDF page: {e}")
+                    # Multimodal Image Captioning
+                    try:
+                        if hasattr(page, 'images') and page.images:
+                            for img in page.images:
+                                 # img.data contains the bytes
+                                 caption = AIService.generate_image_caption(img.data)
+                                 text += caption + "\n"
+                    except Exception as e:
+                         # Non-blocking error for image extraction
+                         print(f"Warning: Failed to extract images from PDF page: {e}")
+        except Exception as e:
+            print(f"Error parsing PDF file {file_path}: {e}")
         return text
 
     @staticmethod
     def _extract_pdf_bytes(bio: BytesIO):
+        from app.services.ai_service import AIService
         text = ""
-        reader = pypdf.PdfReader(bio)
-        for page in reader.pages:
-            text += page.extract_text() + "\n"
-            # Multimodal Image Captioning
-            try:
-                if hasattr(page, 'images') and page.images:
-                    for img in page.images:
-                         caption = AIService.generate_image_caption(img.data)
-                         text += caption + "\n"
-            except Exception as e:
-                 print(f"Warning: Failed to extract images from PDF page: {e}")
+        try:
+            reader = pypdf.PdfReader(bio)
+            for page in reader.pages:
+                try:
+                    extracted = page.extract_text()
+                    if extracted:
+                        text += extracted + "\n"
+                except Exception as e:
+                    print(f"Warning: Failed to extract text from PDF page bytes: {e}")
+                # Multimodal Image Captioning
+                try:
+                    if hasattr(page, 'images') and page.images:
+                        for img in page.images:
+                             caption = AIService.generate_image_caption(img.data)
+                             text += caption + "\n"
+                except Exception as e:
+                     print(f"Warning: Failed to extract images from PDF page: {e}")
+        except Exception as e:
+            print(f"Error parsing PDF bytes: {e}")
         return text
 
     @staticmethod
