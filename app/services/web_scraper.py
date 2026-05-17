@@ -272,7 +272,7 @@ class WebScraper:
         return WebScraper.fetch_one_page_requests(url)
 
     @staticmethod
-    def same_domain_links(soup, base_url):
+    def extract_filtered_links(soup, base_url):
         if not soup:
             return set()
         base = base_url.strip().rstrip('/') or base_url
@@ -293,8 +293,25 @@ class WebScraper:
                     continue
                 netloc = (parsed.netloc or '').lower()
                 cand_root = WebScraper._domain_root(netloc)
+                
+                # Intelligent Filter:
                 if cand_root != base_root:
-                    continue
+                    # Blocklist of domains we absolutely do not want to scrape
+                    blocklist = {
+                        'facebook.com', 'twitter.com', 'x.com', 'instagram.com', 'linkedin.com',
+                        'youtube.com', 'tiktok.com', 'google.com', 'bing.com', 'yahoo.com',
+                        'amazon.com', 'apple.com', 'microsoft.com', 'pinterest.com', 'reddit.com',
+                        'whatsapp.com', 't.me', 'telegram.org', 'wikipedia.org', 'github.com',
+                        'wa.me', 'vimeo.com', 'wordpress.org', 'medium.com', 'quora.com'
+                    }
+                    if cand_root in blocklist:
+                        continue
+                        
+                    # Blocklist of file extensions that are non-textual or too large
+                    bad_exts = ('.pdf', '.jpg', '.jpeg', '.png', '.gif', '.zip', '.rar', '.exe', '.mp3', '.mp4', '.avi', '.docx', '.xlsx', '.pptx')
+                    path_lower = (parsed.path or '').lower()
+                    if any(path_lower.endswith(ext) for ext in bad_exts):
+                        continue
                 out.add(WebScraper.normalize_crawl_url(absolute))
             except Exception:
                 continue
@@ -340,7 +357,7 @@ class WebScraper:
                         if total_chars > max_total_chars:
                             break
                     if soup and pages_done < max_pages:
-                        for link in WebScraper.same_domain_links(soup, u):
+                        for link in WebScraper.extract_filtered_links(soup, u):
                             if link not in seen:
                                 seen.add(link)
                                 queue.append(link)
@@ -355,7 +372,7 @@ class WebScraper:
                         if total_chars > max_total_chars:
                             break
                     if soup and pages_done < max_pages:
-                        for link in WebScraper.same_domain_links(soup, u):
+                        for link in WebScraper.extract_filtered_links(soup, u):
                             if link not in seen:
                                 seen.add(link)
                                 queue.append(link)
@@ -434,7 +451,7 @@ class WebScraper:
             ok, soup, text = WebScraper.fetch_one_page_requests(url)
             same_links = set()
             if ok and soup:
-                same_links = WebScraper.same_domain_links(soup, url)
+                same_links = WebScraper.extract_filtered_links(soup, url)
                 
             sitemap_links = WebScraper.fetch_sitemap_urls(url)
             search_links = WebScraper._site_search_candidates(url, question)
