@@ -71,13 +71,14 @@ class WebScraper:
 
     @staticmethod
     def normalize_crawl_url(u):
-        """One canonical form for crawl dedup (strip fragment, trailing slash)."""
+        """One canonical form for crawl dedup (strip fragment, keep query)."""
         try:
             p = urlparse(u)
             scheme = (p.scheme or 'https').lower()
             netloc = (p.netloc or '').lower()
             path = (p.path or '/').rstrip('/') or '/'
-            return f"{scheme}://{netloc}{path}"
+            query = f"?{p.query}" if p.query else ""
+            return f"{scheme}://{netloc}{path}{query}"
         except Exception:
             return u
 
@@ -294,7 +295,13 @@ class WebScraper:
                 netloc = (parsed.netloc or '').lower()
                 cand_root = WebScraper._domain_root(netloc)
                 
-                # Intelligent Filter:
+                # Blocklist of file extensions that are non-textual or too large (Apply to ALL links)
+                bad_exts = ('.pdf', '.jpg', '.jpeg', '.png', '.gif', '.zip', '.rar', '.exe', '.mp3', '.mp4', '.avi', '.docx', '.xlsx', '.pptx')
+                path_lower = (parsed.path or '').lower()
+                if any(path_lower.endswith(ext) for ext in bad_exts):
+                    continue
+                    
+                # Intelligent Filter for External Links:
                 if cand_root != base_root:
                     # Blocklist of domains we absolutely do not want to scrape
                     blocklist = {
@@ -307,11 +314,6 @@ class WebScraper:
                     if cand_root in blocklist:
                         continue
                         
-                    # Blocklist of file extensions that are non-textual or too large
-                    bad_exts = ('.pdf', '.jpg', '.jpeg', '.png', '.gif', '.zip', '.rar', '.exe', '.mp3', '.mp4', '.avi', '.docx', '.xlsx', '.pptx')
-                    path_lower = (parsed.path or '').lower()
-                    if any(path_lower.endswith(ext) for ext in bad_exts):
-                        continue
                 out.add(WebScraper.normalize_crawl_url(absolute))
             except Exception:
                 continue
