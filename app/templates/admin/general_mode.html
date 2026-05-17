@@ -52,18 +52,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 gap-4">
 
-                    <label
-                        class="flex items-center gap-2 px-3 py-3 border border-slate-800 bg-slate-800/20 rounded-lg cursor-pointer hover:bg-slate-800/40 transition-colors">
-                        <input type="checkbox" id="check-index"
-                            class="w-4 h-4 text-indigo-600 rounded border-slate-700 bg-slate-900 focus:ring-indigo-500">
-                        <div>
-                            <span class="block text-xs font-bold text-slate-200">Index for Knowledge Base</span>
-                            <span class="text-[10px] text-slate-500">Deep-crawl & permanent storage</span>
-                        </div>
-                    </label>
-                </div>
             </div>
 
             <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
@@ -159,7 +148,7 @@
         const btn = document.getElementById('process-source-btn');
         const urlInput = document.getElementById('universal-url-input');
         const url = urlInput.value.trim();
-        const doIndex = document.getElementById('check-index').checked;
+        const doIndex = true;
 
         if (!url) {
             setStatus('Please enter a valid URL.', 'error');
