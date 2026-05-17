@@ -196,7 +196,9 @@ def chat():
             search_filter['doc_type'] = 'general'
 
         # 3. Retrieval
-        results = vector_store.search(query_emb, k=10, filter=search_filter if search_filter else None)
+        # Increase k to 30 to ensure we capture specific facts (like a name) that might be buried 
+        # among dozens of other semantically similar pages (e.g. "former vice chancellors").
+        results = vector_store.search(query_emb, k=30, filter=search_filter if search_filter else None)
         
         # 4. Generation
         context = "\n\n".join([r['text'] for r in results])
