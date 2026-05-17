@@ -216,7 +216,7 @@ class WebScraper:
                 'Upgrade-Insecure-Requests': '1'
             }
             # Use stream=True to check content length before downloading everything
-            with requests.get(url, headers=headers, timeout=8, verify=False, stream=True) as r:
+            with requests.get(url, headers=headers, timeout=(8, 8), verify=False, stream=True) as r:
                 r.raise_for_status()
                 
                 # Check content length (if available) - limit to 5MB
@@ -233,12 +233,16 @@ class WebScraper:
                     pdf_bytes = BytesIO()
                     total_size = 0
                     # Download as binary chunks
+                    import time
+                    start_dl = time.time()
                     for chunk in r.iter_content(chunk_size=8192):
                         if chunk:
                             pdf_bytes.write(chunk)
                             total_size += len(chunk)
                             if total_size > 15 * 1024 * 1024: # Hard cap 15MB for PDFs
                                 break
+                        if time.time() - start_dl > 20: # Max 20s to download a PDF
+                            break
                     pdf_bytes.seek(0)
                     text = DocumentProcessor._extract_pdf_bytes(pdf_bytes)
                     return True, None, text
@@ -246,12 +250,16 @@ class WebScraper:
                     # Download content in chunks as unicode text
                     html_content = ""
                     total_size = 0
+                    import time
+                    start_dl = time.time()
                     for chunk in r.iter_content(chunk_size=8192, decode_unicode=True):
                         if chunk:
                             html_content += chunk
                             total_size += len(chunk)
                             if total_size > 5 * 1024 * 1024: # Hard cap 5MB for HTML
                                 break
+                        if time.time() - start_dl > 10: # Max 10s to download an HTML page
+                            break
                     
                     # Parse the raw HTML into a pristine soup for link extraction
                     soup = BeautifulSoup(html_content, 'lxml' if 'lxml' in sys.modules else 'html.parser')
@@ -352,7 +360,7 @@ class WebScraper:
         
         while queue and pages_done < max_pages and total_chars < max_total_chars and (time.time() - start_time) < time_cap_s:
             batch = []
-            while queue and len(batch) < 8 and pages_done + len(batch) < max_pages:
+            while queue and len(batch) < 3 and pages_done + len(batch) < max_pages:
                 batch.append(queue.popleft())
             if not batch:
                 break
@@ -373,8 +381,11 @@ class WebScraper:
                             
                     return u, ok, soup, text
                     
-                with ThreadPoolExecutor(max_workers=6) as ex:
+                with ThreadPoolExecutor(max_workers=3) as ex:
                     results = list(ex.map(_task, batch))
+                    
+                # Small delay to prevent being rate-limited by fragile servers
+                time.sleep(0.5)
                     
                 for u, ok, soup, text in results:
                     if ok and text and len(text) >= 15:
@@ -465,7 +476,7 @@ class WebScraper:
             return set()
             
     @staticmethod
-    def fetch_targeted_pages(url, question, max_pages=15):
+    def fetch_targeted_pages(url, question, max_pages=15, fast_mode=False):
         """Fetch pages from a site relevant to a question (Home + Sitemap + Search + scored links).
            Uses Requests for speed, falls back to Jina Reader for top candidates if texts are suspiciously short."""
         try:
@@ -479,7 +490,9 @@ class WebScraper:
             if ok and soup:
                 same_links = WebScraper.extract_filtered_links(soup, url)
                 
-            sitemap_links = WebScraper.fetch_sitemap_urls(url)
+            sitemap_links = set()
+            if not fast_mode:
+                sitemap_links = WebScraper.fetch_sitemap_urls(url)
             search_links = WebScraper._site_search_candidates(url, question)
             
             cands = set()
@@ -544,15 +557,16 @@ class WebScraper:
                         failed_or_empty_candidates.append(ou)
 
             # 4. Jina Reader Fallback (for JS-heavy or problematic pages)
-            # Only pick the top 5 scored candidates that failed with requests
-            suspicious_high_value = [u for u in top if u in failed_or_empty_candidates][:5]
-            
-            if suspicious_high_value:
-                for u in suspicious_high_value:
-                    ok_j, _, text_j = WebScraper.fetch_one_page_jina(u)
-                    if ok_j and text_j and len(text_j) > 100:
-                        pages_list.append((u, text_j))
-                        
+            if not fast_mode:
+                # Only pick the top 5 scored candidates that failed with requests
+                suspicious_high_value = [u for u in top if u in failed_or_empty_candidates][:5]
+                
+                if suspicious_high_value:
+                    for u in suspicious_high_value:
+                        ok_j, _, text_j = WebScraper.fetch_one_page_jina(u)
+                        if ok_j and text_j and len(text_j) > 100:
+                            pages_list.append((u, text_j))
+                            
             return True, pages_list
             
         except Exception as e:
