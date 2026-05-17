@@ -103,37 +103,8 @@ def chat():
         
         # 2.5 Live Search (General Mode Only)
         live_context = ""
-        if mode == 'general':
-            from app.models import AppSetting
-            is_live = AppSetting.get('general_live_search', 'false') == 'true'
-            if is_live:
-                urls_json = AppSetting.get('general_website_urls', '[]')
-                try:
-                    urls = json.loads(urls_json)
-                    if urls:
-                        # Perform a quick, targeted fetch of the primary configured URLs
-                        import time
-                        now = time.time()
-                        for url in urls[:2]:
-                            cache_key = f"{url}_{search_query}"
-                            # Check cache first
-                            if cache_key in _SCRAPE_CACHE and (now - _SCRAPE_CACHE_TIME.get(cache_key, 0)) < SCRAPE_CACHE_TTL:
-                                pages = _SCRAPE_CACHE[cache_key]
-                                ok = True
-                            else:
-                                from app.services.web_scraper import WebScraper
-                                # Use targeted fetch to actually find the relevant page based on the question
-                                ok, pages = WebScraper.fetch_targeted_pages(url, search_query, max_pages=3, fast_mode=True)
-                                if ok:
-                                    _SCRAPE_CACHE[cache_key] = pages
-                                    _SCRAPE_CACHE_TIME[cache_key] = now
-                                    
-                            if ok and pages:
-                                for page_url, text in pages:
-                                    # Add a snippet of live content to context
-                                    live_context += f"\n[LIVE DATA FROM {page_url}]:\n{text[:3000]}\n"
-                except Exception as le:
-                    logging.warning(f"Live search failed: {le}")
+        # Live search removed. Relying entirely on daily automated background scraper (WebSourceAutoRefresher)
+        # for maximum chat speed and accuracy.
         
         # 2.7 Fetch Master Syllabus Structure for Grounding
         syllabus_structure = None
