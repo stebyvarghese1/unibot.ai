@@ -123,7 +123,7 @@ def chat():
                             else:
                                 from app.services.web_scraper import WebScraper
                                 # Use targeted fetch to actually find the relevant page based on the question
-                                ok, pages = WebScraper.fetch_targeted_pages(url, search_query, max_pages=3)
+                                ok, pages = WebScraper.fetch_targeted_pages(url, search_query, max_pages=3, fast_mode=True)
                                 if ok:
                                     _SCRAPE_CACHE[cache_key] = pages
                                     _SCRAPE_CACHE_TIME[cache_key] = now
