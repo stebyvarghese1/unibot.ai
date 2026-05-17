@@ -115,21 +115,23 @@ def chat():
                         import time
                         now = time.time()
                         for url in urls[:2]:
+                            cache_key = f"{url}_{search_query}"
                             # Check cache first
-                            if url in _SCRAPE_CACHE and (now - _SCRAPE_CACHE_TIME.get(url, 0)) < SCRAPE_CACHE_TTL:
-                                pages = _SCRAPE_CACHE[url]
+                            if cache_key in _SCRAPE_CACHE and (now - _SCRAPE_CACHE_TIME.get(cache_key, 0)) < SCRAPE_CACHE_TTL:
+                                pages = _SCRAPE_CACHE[cache_key]
                                 ok = True
                             else:
                                 from app.services.web_scraper import WebScraper
-                                ok, pages = WebScraper.crawl_website(url, max_pages_override=1, time_cap_override=5)
+                                # Use targeted fetch to actually find the relevant page based on the question
+                                ok, pages = WebScraper.fetch_targeted_pages(url, search_query, max_pages=3)
                                 if ok:
-                                    _SCRAPE_CACHE[url] = pages
-                                    _SCRAPE_CACHE_TIME[url] = now
+                                    _SCRAPE_CACHE[cache_key] = pages
+                                    _SCRAPE_CACHE_TIME[cache_key] = now
                                     
                             if ok and pages:
                                 for page_url, text in pages:
                                     # Add a snippet of live content to context
-                                    live_context += f"\n[LIVE DATA FROM {page_url}]:\n{text[:2000]}\n"
+                                    live_context += f"\n[LIVE DATA FROM {page_url}]:\n{text[:3000]}\n"
                 except Exception as le:
                     logging.warning(f"Live search failed: {le}")
         
