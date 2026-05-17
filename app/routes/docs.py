@@ -207,8 +207,10 @@ def delete_document(doc_id):
             logging.error(f"Vector deletion failed: {e}")
         
         # 3. Delete from DB (cascades will handle chunks if configured, but we'll be explicit)
-        DocumentChunk.query.filter_by(document_id=doc_id).delete()
-        db.session.delete(doc)
+        # Use bulk delete with synchronize_session=False to prevent SQLAlchemy from loading 
+        # and deleting hundreds of chunks individually, which causes Gunicorn timeouts.
+        DocumentChunk.query.filter_by(document_id=doc_id).delete(synchronize_session=False)
+        Document.query.filter_by(id=doc_id).delete(synchronize_session=False)
         db.session.commit()
         
         return jsonify({'message': 'Document deleted successfully'})
