@@ -19,16 +19,6 @@
 
             <div class="flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg">
-                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Live Search</span>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="general-live-mode" class="sr-only peer">
-                        <div
-                            class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2.5px] after:left-[2.5px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600">
-                        </div>
-                    </label>
-                </div>
-
-                <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg">
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Auto-Sync</span>
                     <select id="general-refresh-interval"
                         class="text-xs border-none focus:ring-0 p-0 bg-transparent text-indigo-400 font-bold cursor-pointer">
@@ -62,17 +52,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label
-                        class="flex items-center gap-2 px-3 py-3 border border-slate-800 bg-slate-800/20 rounded-lg cursor-pointer hover:bg-slate-800/40 transition-colors">
-                        <input type="checkbox" id="check-search"
-                            class="w-4 h-4 text-indigo-600 rounded border-slate-700 bg-slate-900 focus:ring-indigo-500"
-                            checked>
-                        <div>
-                            <span class="block text-xs font-bold text-slate-200">Enable Real-time Search</span>
-                            <span class="text-[10px] text-slate-500">Quick-browse during conversations</span>
-                        </div>
-                    </label>
+                <div class="grid grid-cols-1 gap-4">
 
                     <label
                         class="flex items-center gap-2 px-3 py-3 border border-slate-800 bg-slate-800/20 rounded-lg cursor-pointer hover:bg-slate-800/40 transition-colors">
@@ -101,15 +81,9 @@
     <div class="bg-slate-900 rounded-xl shadow-2xl border border-slate-800 overflow-hidden">
         <div
             class="px-4 sm:px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex flex-wrap justify-between items-center gap-2">
-            <div class="flex p-1 bg-slate-950 border border-slate-800 rounded-lg">
-                <button onclick="switchTab('active')" id="tab-active"
-                    class="px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all bg-slate-800 text-indigo-400 shadow-lg">
-                    Active Search
-                </button>
-                <button onclick="switchTab('indexed')" id="tab-indexed"
-                    class="px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-all">
-                    Indexed Database
-                </button>
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-database text-indigo-400"></i>
+                <h3 class="text-sm font-semibold text-slate-200">Indexed Database</h3>
             </div>
 
             <div class="flex items-center gap-3">
@@ -120,21 +94,8 @@
             </div>
         </div>
 
-        <!-- Active Links Tab -->
-        <div id="content-active" class="block">
-            <div class="p-4 sm:p-6">
-                <div id="general-urls-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <!-- Dynamic Content -->
-                </div>
-                <div id="active-empty" class="hidden py-12 text-center text-slate-600">
-                    <i class="fa-solid fa-search-location text-3xl mb-2 opacity-20"></i>
-                    <p class="text-sm font-medium">No active search links configured.</p>
-                </div>
-            </div>
-        </div>
-
         <!-- Indexed KB Tab -->
-        <div id="content-indexed" class="hidden overflow-x-auto">
+        <div id="content-indexed" class="overflow-x-auto block">
             <table class="min-w-full divide-y divide-slate-800">
                 <thead class="bg-slate-800/50 focus:outline-none">
                     <tr>
@@ -164,32 +125,11 @@
     let generalConfig = { urls: [], live: false };
 
     async function refreshData() {
-        const activeTab = document.getElementById('content-active').classList.contains('hidden') ? 'indexed' : 'active';
         await loadGeneralConfig();
-        if (activeTab === 'indexed') await loadDocs();
+        await loadDocs();
         setStatus('Synced', 'success');
     }
 
-    function switchTab(tab) {
-        const activeTabBtn = document.getElementById('tab-active');
-        const indexedTabBtn = document.getElementById('tab-indexed');
-        const activeContent = document.getElementById('content-active');
-        const indexedContent = document.getElementById('content-indexed');
-
-        if (tab === 'active') {
-            activeTabBtn.className = 'px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all bg-slate-800 text-indigo-400 shadow-lg';
-            indexedTabBtn.className = 'px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-all';
-            activeContent.classList.remove('hidden');
-            indexedContent.classList.add('hidden');
-            updateCount(generalConfig.urls?.length || 0);
-        } else {
-            indexedTabBtn.className = 'px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all bg-slate-800 text-indigo-400 shadow-lg';
-            activeTabBtn.className = 'px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-all';
-            indexedContent.classList.remove('hidden');
-            activeContent.classList.add('hidden');
-            loadDocs();
-        }
-    }
 
     function updateCount(count) {
         document.getElementById('item-count').innerText = `${count} ${count === 1 ? 'SOURCE' : 'SOURCES'}`;
@@ -209,93 +149,16 @@
             const res = await fetch('/api/admin/general-website');
             const data = await res.json();
             generalConfig = data;
-            renderGeneralUrls();
-            document.getElementById('general-live-mode').checked = data.live;
             document.getElementById('general-refresh-interval').value = data.refresh || 'never';
-            if (!document.getElementById('content-active').classList.contains('hidden')) {
-                updateCount(data.urls?.length || 0);
-            }
         } catch (e) { console.error('Config failed', e); }
     }
 
-    function renderGeneralUrls() {
-        const list = document.getElementById('general-urls-list');
-        const empty = document.getElementById('active-empty');
-        if (!list) return;
-        list.innerHTML = '';
 
-        const urls = generalConfig.urls || [];
-        if (urls.length === 0) {
-            empty.classList.remove('hidden');
-            return;
-        }
-        empty.classList.add('hidden');
-
-        urls.forEach((url, idx) => {
-            const div = document.createElement('div');
-            div.className = 'flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-lg shadow-sm hover:border-indigo-500/50 transition-all group';
-            div.innerHTML = `
-                <div class="flex items-center gap-3 min-w-0">
-                  <div class="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded bg-slate-900 text-[10px] font-bold text-slate-500 border border-slate-800 group-hover:bg-indigo-500/10 group-hover:text-indigo-400 transition-all font-mono">${idx + 1}</div>
-                  <div class="min-w-0">
-                    <span class="text-sm text-slate-200 font-bold truncate block">${url}</span>
-                  </div>
-                </div>
-                <button type="button" onclick="removeGeneralUrl(${idx}, this)" class="w-8 h-8 flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all">
-                  <i class="fa-solid fa-trash-alt text-xs"></i>
-                </button>
-            `;
-            list.appendChild(div);
-        });
-    }
-
-    async function removeGeneralUrl(idx, btn) {
-        if (!confirm('Remove this search link?')) return;
-        const target = btn ? btn.closest('.group') : null;
-        
-        try {
-            const tempUrls = [...generalConfig.urls];
-            tempUrls.splice(idx, 1);
-            
-            const payload = {
-                urls: tempUrls,
-                live: document.getElementById('general-live-mode').checked,
-                refresh: document.getElementById('general-refresh-interval').value
-            };
-
-            const saveRes = await fetch('/api/admin/general-website', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (saveRes.ok) {
-                if (target) {
-                    target.classList.add('item-deleting');
-                    setTimeout(() => {
-                        generalConfig.urls.splice(idx, 1);
-                        renderGeneralUrls();
-                        updateCount(generalConfig.urls.length);
-                        setStatus('Search link removed successfully!', 'success');
-                    }, 400);
-                } else {
-                    generalConfig.urls.splice(idx, 1);
-                    renderGeneralUrls();
-                    updateCount(generalConfig.urls.length);
-                    setStatus('Search link removed successfully!', 'success');
-                }
-            } else { setStatus('Failed to sync deletion with database', 'error'); }
-        } catch (e) { setStatus('Network Error', 'error'); }
-    }
 
     document.getElementById('process-source-btn').addEventListener('click', async () => {
         const btn = document.getElementById('process-source-btn');
         const urlInput = document.getElementById('universal-url-input');
         const url = urlInput.value.trim();
-        const doSearch = document.getElementById('check-search').checked;
         const doIndex = document.getElementById('check-index').checked;
 
         if (!url) {
@@ -315,14 +178,7 @@
         setStatus('Orchestrating request...', 'info');
 
         try {
-            if (doSearch) {
-                if (!generalConfig.urls) generalConfig.urls = [];
-                if (!generalConfig.urls.includes(url)) {
-                    generalConfig.urls.push(url);
-                    renderGeneralUrls();
-                    updateCount(generalConfig.urls.length);
-                }
-            }
+
 
             if (doIndex) {
                 const scrapeRes = await fetch('/api/admin/add-website', {
@@ -345,8 +201,8 @@
             }
 
             const payload = {
-                urls: generalConfig.urls,
-                live: document.getElementById('general-live-mode').checked,
+                urls: [],
+                live: false,
                 refresh: document.getElementById('general-refresh-interval').value
             };
 
