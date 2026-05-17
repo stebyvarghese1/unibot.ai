@@ -224,18 +224,42 @@ class WebScraper:
                 if content_length and int(content_length) > 5 * 1024 * 1024:
                     return False, None, 'Page too large (>5MB)'
                 
-                # Download content in chunks with a cap
-                html_content = ""
-                total_size = 0
-                for chunk in r.iter_content(chunk_size=8192, decode_unicode=True):
-                    if chunk:
-                        html_content += chunk
-                        total_size += len(chunk)
-                        if total_size > 5 * 1024 * 1024: # Hard cap 5MB
-                            break
+                content_type = r.headers.get('Content-Type', '').lower()
+                is_pdf = 'application/pdf' in content_type or url.lower().split('?')[0].endswith('.pdf')
                 
-                soup, text = WebScraper.extract_text_from_html(html_content, url)
-                return True, soup, text
+                if is_pdf:
+                    from io import BytesIO
+                    from app.services.document_processor import DocumentProcessor
+                    pdf_bytes = BytesIO()
+                    total_size = 0
+                    # Download as binary chunks
+                    for chunk in r.iter_content(chunk_size=8192):
+                        if chunk:
+                            pdf_bytes.write(chunk)
+                            total_size += len(chunk)
+                            if total_size > 15 * 1024 * 1024: # Hard cap 15MB for PDFs
+                                break
+                    pdf_bytes.seek(0)
+                    text = DocumentProcessor._extract_pdf_bytes(pdf_bytes)
+                    return True, None, text
+                else:
+                    # Download content in chunks as unicode text
+                    html_content = ""
+                    total_size = 0
+                    for chunk in r.iter_content(chunk_size=8192, decode_unicode=True):
+                        if chunk:
+                            html_content += chunk
+                            total_size += len(chunk)
+                            if total_size > 5 * 1024 * 1024: # Hard cap 5MB for HTML
+                                break
+                    
+                    # Parse the raw HTML into a pristine soup for link extraction
+                    soup = BeautifulSoup(html_content, 'lxml' if 'lxml' in sys.modules else 'html.parser')
+                    
+                    # Extract clean text (this destructively modifies its own soup instance to remove nav/headers)
+                    _, text = WebScraper.extract_text_from_html(html_content, url)
+                    
+                    return True, soup, text
         except requests.RequestException as e:
             return False, None, str(e)
         except Exception as e:
@@ -296,7 +320,7 @@ class WebScraper:
                 cand_root = WebScraper._domain_root(netloc)
                 
                 # Blocklist of file extensions that are non-textual or too large (Apply to ALL links)
-                bad_exts = ('.pdf', '.jpg', '.jpeg', '.png', '.gif', '.zip', '.rar', '.exe', '.mp3', '.mp4', '.avi', '.docx', '.xlsx', '.pptx')
+                bad_exts = ('.jpg', '.jpeg', '.png', '.gif', '.zip', '.rar', '.exe', '.mp3', '.mp4', '.avi', '.docx', '.xlsx', '.pptx')
                 path_lower = (parsed.path or '').lower()
                 if any(path_lower.endswith(ext) for ext in bad_exts):
                     continue
