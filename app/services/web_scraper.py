@@ -129,8 +129,9 @@ class WebScraper:
                         if not u:
                             continue
                         p = urlparse(u)
-                        nl = (p.netloc or '').lower()
-                        if p.scheme in ('http', 'https') and (WebScraper._domain_root(nl) == base_root):
+                        nl = (p.netloc or '').lower().replace('www.', '')
+                        base_nl = base_netloc.replace('www.', '')
+                        if p.scheme in ('http', 'https') and (nl == base_nl):
                             if u.lower().endswith('.xml') or u.lower().endswith('.xml.gz'):
                                 nested.append(u)
                             else:
@@ -338,6 +339,12 @@ class WebScraper:
                 netloc = (parsed.netloc or '').lower()
                 cand_root = WebScraper._domain_root(netloc)
                 
+                # Strict Same-Subdomain Enforcement (ignore 'www.' prefix)
+                cand_sub = netloc.replace('www.', '')
+                base_sub = base_netloc.replace('www.', '')
+                if cand_sub != base_sub:
+                    continue
+                
                 # Blocklist of file extensions that are non-textual or too large (Apply to ALL links)
                 bad_exts = ('.jpg', '.jpeg', '.png', '.gif', '.zip', '.rar', '.exe', '.mp3', '.mp4', '.avi', '.docx', '.xlsx', '.pptx')
                 path_lower = (parsed.path or '').lower()
@@ -495,6 +502,11 @@ class WebScraper:
             # 1. Discovery Phase (Home + Sitemap + Search)
             # Use requests for discovery to be fast
             ok, soup, text = WebScraper.fetch_one_page_requests(url)
+            if not ok or not text:
+                ok_j, soup_j, text_j = WebScraper.fetch_one_page_jina(url)
+                if ok_j and soup_j:
+                    ok, soup, text = ok_j, soup_j, text_j
+            
             same_links = set()
             if ok and soup:
                 same_links = WebScraper.extract_filtered_links(soup, url)
@@ -566,15 +578,18 @@ class WebScraper:
                         failed_or_empty_candidates.append(ou)
 
             # 4. Jina Reader Fallback (for JS-heavy or problematic pages)
-            if not fast_mode:
-                # Only pick the top 5 scored candidates that failed with requests
-                suspicious_high_value = [u for u in top if u in failed_or_empty_candidates][:5]
+            if not fast_mode or len(pages_list) < max_pages:
+                # Pick candidates that failed with requests
+                fallback_limit = 2 if fast_mode else 5
+                suspicious_high_value = [u for u in top if u in failed_or_empty_candidates][:fallback_limit]
                 
                 if suspicious_high_value:
                     for u in suspicious_high_value:
                         ok_j, _, text_j = WebScraper.fetch_one_page_jina(u)
                         if ok_j and text_j and len(text_j) > 100:
                             pages_list.append((u, text_j))
+                            if fast_mode and len(pages_list) >= max_pages:
+                                break
                             
             return True, pages_list
             
