@@ -226,11 +226,21 @@ def create_app(config_class=Config):
                     '''))
                     
                     # 3. Create search function (idempotent CREATE OR REPLACE)
+                    # First drop any overloaded versions to avoid PGSRT203 conflicts
+                    try:
+                        db.session.execute(text("DROP FUNCTION IF EXISTS match_documents(vector, double precision, integer)"))
+                        db.session.execute(text("DROP FUNCTION IF EXISTS match_documents(vector, double precision, integer, jsonb)"))
+                        db.session.execute(text("DROP FUNCTION IF EXISTS match_documents(vector(384), double precision, integer)"))
+                        db.session.execute(text("DROP FUNCTION IF EXISTS match_documents(vector(384), double precision, integer, jsonb)"))
+                    except Exception as drop_ex:
+                        print(f"Non-critical drop warning: {drop_ex}")
+                        
                     db.session.execute(text('''
                         CREATE OR REPLACE FUNCTION match_documents (
                             query_embedding VECTOR(384),
                             match_threshold FLOAT,
-                            match_count INT
+                            match_count INT,
+                            filter JSONB DEFAULT '{}'
                         )
                         RETURNS TABLE (
                             id BIGINT,
@@ -249,6 +259,7 @@ def create_app(config_class=Config):
                                 1 - (embeddings.embedding <=> query_embedding) AS similarity
                             FROM embeddings
                             WHERE 1 - (embeddings.embedding <=> query_embedding) > match_threshold
+                                AND (filter = '{}' OR embeddings.metadata @> filter)
                             ORDER BY embeddings.embedding <=> query_embedding
                             LIMIT match_count;
                         END;
@@ -351,6 +362,15 @@ def create_app(config_class=Config):
             "error": "Rate limit exceeded",
             "message": str(e.description) if hasattr(e, 'description') else "Too many requests. Please try again later."
         }), 429
+
+    # Dispose of the engine connection pool.
+    # This prevents the parent process's active database connections from being inherited/shared 
+    # across worker forks (e.g. under Gunicorn on Render), which prevents "SSL error: bad record type".
+    with app.app_context():
+        try:
+            db.engine.dispose()
+        except Exception as e:
+            logging.warning(f"Failed to dispose DB engine: {e}")
 
     return app
 
