@@ -25,7 +25,7 @@ class AIService:
             role = "Assistant" if m['role'] == 'assistant' else "User"
             history_str += f"{role}: {m['content'][:250]}...\n" if len(m['content']) > 250 else f"{role}: {m['content']}\n"
 
-        # Try Hugging Face first (Primary)
+        # Try Hugging Face first (Primary with robust fallbacks)
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
             client = InferenceClient(token=token, timeout=12)
@@ -36,21 +36,35 @@ class AIService:
             ]
             
             hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
-            response = client.chat_completion(
-                messages=rewrite_messages,
-                model=hf_model or "mistralai/Mistral-7B-Instruct-v0.2",
-                max_tokens=100,
-                temperature=0.0
-            )
+            fallbacks = [
+                hf_model,
+                "meta-llama/Llama-3.2-3B-Instruct",
+                "meta-llama/Llama-3.2-1B-Instruct",
+                "Qwen/Qwen2.5-7B-Instruct",
+                "mistralai/Mistral-7B-Instruct-v0.3"
+            ]
             
-            if hasattr(response, 'choices'):
-                result = response.choices[0].message.content
-            else:
-                result = response.get('choices', [{}])[0].get('message', {}).get('content', '')
-            
-            result = (result or "").strip().strip('"').strip("'").strip()
-            if result and len(result) > 2:
-                return result
+            for mdl in fallbacks:
+                if not mdl: continue
+                try:
+                    response = client.chat_completion(
+                        messages=rewrite_messages,
+                        model=mdl,
+                        max_tokens=100,
+                        temperature=0.0
+                    )
+                    
+                    if hasattr(response, 'choices'):
+                        result = response.choices[0].message.content
+                    else:
+                        result = response.get('choices', [{}])[0].get('message', {}).get('content', '')
+                    
+                    result = (result or "").strip().strip('"').strip("'").strip()
+                    if result and len(result) > 2:
+                        return result
+                except Exception as inner_ex:
+                    logging.warning(f"Hugging Face query rewrite fallback {mdl} failed: {inner_ex}")
+                    continue
         except Exception as e:
             logging.warning(f"Hugging Face query rewrite failed: {e}")
                 
@@ -350,31 +364,45 @@ class AIService:
 
     @staticmethod
     def generate_smalltalk(text: str, user_preferred_name=None, course=None, semester=None, subject=None):
-        # Try Hugging Face first (Primary)
+        # Try Hugging Face first (Primary with robust fallbacks)
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
             hf_client = InferenceClient(token=token, timeout=8)
             
             hf_model = current_app.config.get("HF_SMALLTALK_MODEL") if current_app else Config.HF_SMALLTALK_MODEL
-            response = hf_client.chat_completion(
-                messages=[
-                    {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + 
-                     (f"The user is {user_preferred_name}, studying {course} (Semester {semester})" + (f", specifically {subject}." if subject else ".") if user_preferred_name and course and semester else "") +
-                     (f" IMPORTANT: You MUST start your response by greeting the user by their name '{user_preferred_name}' (e.g. 'Hello {user_preferred_name}!')" if user_preferred_name else "")},
-                    {"role": "user", "content": text}
-                ],
-                model=hf_model or "google/gemma-2-2b-it",
-                max_tokens=64,
-                temperature=0.7
-            )
+            fallbacks = [
+                hf_model,
+                "meta-llama/Llama-3.2-1B-Instruct",
+                "meta-llama/Llama-3.2-3B-Instruct",
+                "Qwen/Qwen2.5-7B-Instruct",
+                "google/gemma-2-9b-it"
+            ]
             
-            if hasattr(response, 'choices'):
-                out = response.choices[0].message.content
-            else:
-                out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
-            
-            if out and len(out.strip()) > 0:
-                return out.strip()
+            for mdl in fallbacks:
+                if not mdl: continue
+                try:
+                    response = hf_client.chat_completion(
+                        messages=[
+                            {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + 
+                             (f"The user is {user_preferred_name}, studying {course} (Semester {semester})" + (f", specifically {subject}." if subject else ".") if user_preferred_name and course and semester else "") +
+                             (f" IMPORTANT: You MUST start your response by greeting the user by their name '{user_preferred_name}' (e.g. 'Hello {user_preferred_name}!')" if user_preferred_name else "")},
+                            {"role": "user", "content": text}
+                        ],
+                        model=mdl,
+                        max_tokens=64,
+                        temperature=0.7
+                    )
+                    
+                    if hasattr(response, 'choices'):
+                        out = response.choices[0].message.content
+                    else:
+                        out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
+                    
+                    if out and len(out.strip()) > 0:
+                        return out.strip()
+                except Exception as inner_ex:
+                    logging.warning(f"Hugging Face smalltalk fallback {mdl} failed: {inner_ex}")
+                    continue
         except Exception as e:
             logging.warning(f"Hugging Face smalltalk failed: {e}")
         
