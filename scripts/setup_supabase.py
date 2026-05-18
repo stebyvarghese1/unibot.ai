@@ -9,7 +9,7 @@ def setup_supabase_vector():
     db_url = os.getenv('SUPABASE_DB_URL') or os.getenv('DATABASE_URL')
     
     if not db_url:
-        print("❌ Error: SUPABASE_DB_URL or DATABASE_URL not found in environment.")
+        print("[ERROR] SUPABASE_DB_URL or DATABASE_URL not found in environment.")
         return
 
     # Normalize DATABASE_URL for psycopg2 (if it uses the 'postgresql://' scheme)
@@ -17,15 +17,15 @@ def setup_supabase_vector():
         db_url += '?sslmode=require'
 
     try:
-        print(f"🔗 Connecting to database...")
+        print("Connecting to database...")
         conn = psycopg2.connect(db_url)
         conn.autocommit = True
         cur = conn.cursor()
 
-        print("🚀 Enabling pgvector extension...")
+        print("Enabling pgvector extension...")
         cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
 
-        print("📁 Creating 'embeddings' table...")
+        print("Creating 'embeddings' table...")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS embeddings (
                 id BIGSERIAL PRIMARY KEY,
@@ -35,7 +35,17 @@ def setup_supabase_vector():
             );
         """)
 
-        print("🔍 Creating 'match_documents' function...")
+        print("Dropping any existing overloaded 'match_documents' functions to resolve PGSRT203 ambiguity...")
+        try:
+            cur.execute("DROP FUNCTION IF EXISTS match_documents(vector, double precision, integer);")
+            cur.execute("DROP FUNCTION IF EXISTS match_documents(vector, double precision, integer, jsonb);")
+            cur.execute("DROP FUNCTION IF EXISTS match_documents(vector(384), double precision, integer);")
+            cur.execute("DROP FUNCTION IF EXISTS match_documents(vector(384), double precision, integer, jsonb);")
+            print("Successfully dropped existing overloaded versions of 'match_documents'")
+        except Exception as drop_error:
+            print(f"Warning dropping old functions: {drop_error}")
+
+        print("Creating 'match_documents' function...")
         cur.execute("""
             CREATE OR REPLACE FUNCTION match_documents (
                 query_embedding VECTOR(384),
@@ -67,17 +77,17 @@ def setup_supabase_vector():
             $$;
         """)
 
-        print("⚡ Creating HNSW index for better performance...")
+        print("Creating HNSW index for better performance...")
         # Note: ivfflat is also good, but hnsw is generally faster for search
         cur.execute("CREATE INDEX ON embeddings USING hnsw (embedding vector_cosine_ops);")
 
-        print("✅ Supabase pgvector setup completed successfully!")
+        print("Supabase pgvector setup completed successfully!")
         
         cur.close()
         conn.close()
         
     except Exception as e:
-        print(f"❌ Error setting up database: {e}")
+        print(f"Error setting up database: {e}")
 
 if __name__ == "__main__":
     setup_supabase_vector()
