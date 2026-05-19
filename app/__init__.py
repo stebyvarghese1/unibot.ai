@@ -2,6 +2,7 @@ from flask import Flask
 from flask_cors import CORS
 from flask_compress import Compress
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from config import Config
 import threading
 import time
@@ -15,6 +16,7 @@ from flask_wtf.csrf import CSRFProtect, generate_csrf
 from flask_talisman import Talisman
 
 db = SQLAlchemy()
+migrate = Migrate()
 csrf = CSRFProtect()
 limiter = Limiter(
     key_func=get_remote_address,
@@ -35,6 +37,7 @@ def create_app(config_class=Config):
     CORS(app)
     Compress(app) # Gzip compression for all JSON responses
     db.init_app(app)
+    migrate.init_app(app, db)
     
     # Security Middleware
     csrf.init_app(app)
