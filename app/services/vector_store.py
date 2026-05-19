@@ -1,6 +1,5 @@
 import numpy as np
 import logging
-from app.services.supabase_service import SupabaseService
 
 class VectorStore:
     _instance = None
@@ -10,7 +9,6 @@ class VectorStore:
             cls._instance = super(VectorStore, cls).__new__(cls)
             # Try to get dimension from config, default to 384 for MiniLM
             cls._instance.dimension = 384 
-            cls._instance.supabase = SupabaseService()
             cls._instance._stats_cache = None
             cls._instance._stats_cache_time = 0
             cls._instance.STATS_CACHE_TTL = 60 # 1 minute
@@ -138,7 +136,7 @@ class VectorStore:
 
     def search(self, query_vector, k=5, filter=None):
         """
-        Search for similar documents using match_documents RPC with optional filtering
+        Search for similar documents using match_documents RPC via SQLAlchemy with optional filtering
         """
         try:
             # Ensure query_vector is a list
@@ -147,29 +145,41 @@ class VectorStore:
             else:
                 vector = list(query_vector)
 
-            # Call the match_documents stored procedure
-            # This function needs to be defined in Supabase SQL
-            rpc_params = {
-                'query_embedding': vector,
-                'match_threshold': 0.1, 
-                'match_count': k
+            from app import db
+            from sqlalchemy import text
+            import json
+
+            # Match documents via raw SQL execute calling the database function
+            sql = text("""
+                SELECT id, content, metadata, similarity 
+                FROM match_documents(:query_embedding, :match_threshold, :match_count, :filter)
+            """)
+
+            params = {
+                'query_embedding': str(vector),
+                'match_threshold': 0.1,
+                'match_count': k,
+                'filter': json.dumps(filter) if filter else '{}'
             }
-            
-            if filter:
-                rpc_params['filter'] = filter
-            
-            response = self.supabase.client.rpc('match_documents', rpc_params).execute()
-            
+
+            db_res = db.session.execute(sql, params).fetchall()
+
             results = []
-            for item in response.data:
-                res = item.get('metadata', {}).copy()
-                res['text'] = item.get('content', '')
-                res['distance'] = 1.0 - item.get('similarity', 0) # Convert similarity to distance
+            for row in db_res:
+                meta = row[2]
+                if isinstance(meta, str):
+                    try:
+                        meta = json.loads(meta)
+                    except Exception:
+                        meta = {}
+                res = meta.copy() if meta else {}
+                res['text'] = row[1] or ''
+                res['distance'] = 1.0 - (row[3] or 0)
                 results.append(res)
-                
+
             return results
         except Exception as e:
-            logging.error(f"Error searching in Supabase: {e}")
+            logging.error(f"Error searching via SQLAlchemy: {e}")
             return []
 
     def clear(self):
