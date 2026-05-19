@@ -23,8 +23,6 @@ def rebuild_index_from_db():
             TaskTracker.complete_task(task_name, "No data to rebuild")
             return
 
-        TaskTracker.update_progress(task_name, 0, total_chunks, f"Found {total_chunks} chunks. Mapping metadata...")
-        
         # 2. Extract text content and metadata from chunks
         from app.models import Document
         docs = Document.query.all()
@@ -36,6 +34,12 @@ def rebuild_index_from_db():
             'semester': d.semester.strip().upper() if d.semester else None,
             'subject': d.subject.strip().upper() if d.subject else None
         } for d in docs}
+
+        system_chunks_count = sum(1 for c in chunks if doc_map.get(c.document_id, {}).get('doc_type') == 'system_info')
+        syllabus_chunks_count = total_chunks - system_chunks_count
+        logging.info(f"Re-vectoring: {syllabus_chunks_count} syllabus/supporting chunks and {system_chunks_count} system intelligence chunks found.")
+
+        TaskTracker.update_progress(task_name, 0, total_chunks, f"Found {total_chunks} chunks ({system_chunks_count} system intelligence). Mapping metadata...")
         
         # 3. Get the singleton vector store instance
         vector_store = VectorStore.get_instance()
@@ -121,8 +125,8 @@ def rebuild_index_from_db():
             vector_store.add_texts(unit_texts, unit_metas)
             db.session.commit()
 
-        TaskTracker.complete_task(task_name, f"Successfully rebuilt {total_processed} chunks and grounded syllabus maps")
-        logging.info(f"Successfully rebuilt vector index. {total_processed} chunks processed.")
+        TaskTracker.complete_task(task_name, f"Successfully rebuilt {total_processed} chunks (including {system_chunks_count} system intelligence) and grounded syllabus maps")
+        logging.info(f"Successfully rebuilt vector index. {total_processed} chunks processed (including {system_chunks_count} system intelligence).")
         
     except Exception as e:
         logging.error(f"Error rebuilding vector index from database: {e}", exc_info=True)
