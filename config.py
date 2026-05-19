@@ -1,6 +1,26 @@
 import os
 from dotenv import load_dotenv
 
+# --- WINDOWS CA CERTIFICATE GOOGLE DRIVE FILE-IO HOTFIX ---
+# When Python's ssl module/OpenSSL tries to read the CA cert file from a virtual cloud
+# filesystem like Google Drive (H:\), it deadlocks or hangs inside the Windows driver.
+# We copy the tiny cert bundle to a local physical C: drive temp folder and patch certifi.where.
+if os.name == 'nt':
+    try:
+        import certifi
+        import shutil
+        import tempfile
+        orig_cert_path = certifi.where()
+        local_temp_dir = tempfile.gettempdir()
+        local_cert_path = os.path.join(local_temp_dir, "unibot_cacert.pem")
+        if not os.path.exists(local_cert_path) or os.path.getsize(orig_cert_path) != os.path.getsize(local_cert_path):
+            shutil.copy(orig_cert_path, local_cert_path)
+        certifi.where = lambda: local_cert_path
+    except Exception as e:
+        import logging
+        logging.warning(f"Failed to apply Windows local CA cert hotfix: {e}")
+# ---------------------------------------------------------
+
 load_dotenv()
 
 class Config:
