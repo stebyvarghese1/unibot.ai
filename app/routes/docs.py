@@ -41,17 +41,21 @@ def process_document_task(doc_id):
             temp_path = temp_file.name
             
         try:
-            signed_url = supa.get_signed_url(doc.file_path)
-            if signed_url:
-                # Stream the download to avoid holding the whole file in RAM
-                with requests.get(signed_url, stream=True) as r:
-                    r.raise_for_status()
-                    with open(temp_path, 'wb') as f:
-                        for chunk in r.iter_content(chunk_size=1024*1024): # 1MB chunks
-                            if chunk:
-                                f.write(chunk)
-            else:
-                # Fallback to direct download if signed URL generation is disabled/fails
+            try:
+                signed_url = supa.get_signed_url(doc.file_path)
+                if signed_url:
+                    # Stream the download to avoid holding the whole file in RAM
+                    with requests.get(signed_url, stream=True, timeout=30) as r:
+                        r.raise_for_status()
+                        with open(temp_path, 'wb') as f:
+                            for chunk in r.iter_content(chunk_size=1024*1024): # 1MB chunks
+                                if chunk:
+                                    f.write(chunk)
+                else:
+                    raise ValueError("Signed URL generation returned None")
+            except Exception as stream_err:
+                logging.warning(f"Streaming download failed: {stream_err}. Falling back to direct download.")
+                # Fallback to direct download
                 file_bytes = supa.download_file(doc.file_path)
                 with open(temp_path, 'wb') as f:
                     f.write(file_bytes)
