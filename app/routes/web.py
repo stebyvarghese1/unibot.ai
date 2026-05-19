@@ -62,7 +62,10 @@ def process_website_task(doc_id, url, filename):
                 'doc_id': doc_id,
                 'chunk_id': c.id,
                 'filename': filename,
-                'doc_type': doc.doc_type if doc else 'general'
+                'doc_type': doc.doc_type if doc else 'general',
+                'course': doc.course.strip().upper() if (doc and doc.course) else None,
+                'semester': doc.semester.strip().upper() if (doc and doc.semester) else None,
+                'subject': doc.subject.strip().upper() if (doc and doc.subject) else None
             })
             
         if all_chunk_texts:
