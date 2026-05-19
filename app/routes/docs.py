@@ -30,12 +30,41 @@ def process_document_task(doc_id):
         doc.status = 'processing'
         db.session.commit()
         
-        # 1. Download file
+        # 1. Download file in chunks to a temporary file
         supa = SupabaseService()
-        file_bytes = supa.download_file(doc.file_path)
+        import tempfile
+        import requests
         
-        # 2. Extract text
-        text = DocumentProcessor.extract_text_from_bytes(file_bytes, doc.filename)
+        # Determine extension to ensure proper format-based parsing
+        ext = os.path.splitext(doc.filename)[1].lower()
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as temp_file:
+            temp_path = temp_file.name
+            
+        try:
+            signed_url = supa.get_signed_url(doc.file_path)
+            if signed_url:
+                # Stream the download to avoid holding the whole file in RAM
+                with requests.get(signed_url, stream=True) as r:
+                    r.raise_for_status()
+                    with open(temp_path, 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=1024*1024): # 1MB chunks
+                            if chunk:
+                                f.write(chunk)
+            else:
+                # Fallback to direct download if signed URL generation is disabled/fails
+                file_bytes = supa.download_file(doc.file_path)
+                with open(temp_path, 'wb') as f:
+                    f.write(file_bytes)
+                    
+            # 2. Extract text from disk
+            text = DocumentProcessor.extract_text(temp_path)
+        finally:
+            # Clean up the temp file
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception as e:
+                    logging.warning(f"Failed to delete temporary file {temp_path}: {e}")
         
         if not text:
             raise ValueError("No text extracted from document")
