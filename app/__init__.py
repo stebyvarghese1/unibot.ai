@@ -159,7 +159,7 @@ def create_app(config_class=Config):
 
                 # Only run ALTER if columns are missing
                 if len(existing_users_cols) < 6:
-                    print("🛠 Adding missing user preference columns...")
+                    print("Adding missing user preference columns...")
                     db.session.execute(text("SET LOCAL statement_timeout = 60000")) # 60s timeout for migration
                     
                     if 'preferred_name' not in existing_users_cols:
@@ -183,10 +183,10 @@ def create_app(config_class=Config):
                 """)
                 existing_doc_cols = [r[0] for r in db.session.execute(check_doc_sql).fetchall()]
                 if 'doc_type' not in existing_doc_cols:
-                    print("🛠 Adding missing doc_type column...")
+                    print("Adding missing doc_type column...")
                     db.session.execute(text("ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS doc_type VARCHAR(50) DEFAULT 'syllabus'"))
                 if 'structure_json' not in existing_doc_cols:
-                    print("🛠 Adding missing structure_json column...")
+                    print("Adding missing structure_json column...")
                     db.session.execute(text("ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS structure_json TEXT"))
                 db.session.commit()
 
@@ -196,7 +196,7 @@ def create_app(config_class=Config):
                     WHERE table_schema = 'public' AND table_name = 'filter_options' AND column_name = 'parent_id'
                 """)
                 if not db.session.execute(check_filter_sql).first():
-                    print("🛠 Adding missing parent_id column...")
+                    print("Adding missing parent_id column...")
                     db.session.execute(text("ALTER TABLE public.filter_options ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES public.filter_options(id)"))
                     db.session.commit()
                 
@@ -206,7 +206,7 @@ def create_app(config_class=Config):
                     WHERE table_schema = 'public' AND table_name = 'chat_messages' AND column_name = 'feedback'
                 """)
                 if not db.session.execute(check_msg_sql).first():
-                    print("🛠 Adding missing feedback column to chat_messages...")
+                    print("Adding missing feedback column to chat_messages...")
                     db.session.execute(text("ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS feedback VARCHAR(20)"))
                     db.session.commit()
                 
@@ -262,7 +262,13 @@ def create_app(config_class=Config):
                                 1 - (embeddings.embedding <=> query_embedding) AS similarity
                             FROM embeddings
                             WHERE 1 - (embeddings.embedding <=> query_embedding) > match_threshold
-                                AND (filter = '{}' OR embeddings.metadata @> filter)
+                                AND (
+                                    filter = '{}'
+                                    OR (
+                                        (filter ? 'doc_type' AND filter->>'doc_type' = 'general' AND embeddings.metadata->>'doc_type' IN ('general', 'system_info'))
+                                        OR (embeddings.metadata @> filter)
+                                    )
+                                )
                             ORDER BY embeddings.embedding <=> query_embedding
                             LIMIT match_count;
                         END;
