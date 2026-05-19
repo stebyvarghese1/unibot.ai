@@ -93,7 +93,10 @@ class WebSourceRefresher:
                                 'chunk_id': None, # Updated after commit
                                 'url': page_url,
                                 'filename': doc.filename,
-                                'doc_type': doc.doc_type
+                                'doc_type': doc.doc_type,
+                                'course': doc.course.strip().upper() if doc.course else None,
+                                'semester': doc.semester.strip().upper() if doc.semester else None,
+                                'subject': doc.subject.strip().upper() if doc.subject else None
                             })
                             total_chunks += 1
 
