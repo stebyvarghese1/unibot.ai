@@ -35,6 +35,14 @@ class DocumentProcessor:
             text = DocumentProcessor._extract_from_docx(file_path)
         elif ext == '.pptx':
             text = DocumentProcessor._extract_from_pptx(file_path)
+        elif ext == '.txt':
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                text = f.read()
+        elif ext in ['.jpg', '.jpeg', '.png', '.webp']:
+            from app.services.ai_service import AIService
+            with open(file_path, 'rb') as f:
+                file_bytes = f.read()
+            text = f"[Image Content Analysis]\n{AIService.generate_image_caption(file_bytes)}"
         else:
             raise ValueError(f"Unsupported file format: {ext}")
             
@@ -50,6 +58,8 @@ class DocumentProcessor:
             text = DocumentProcessor._extract_docx_bytes(bio)
         elif ext == '.pptx':
             text = DocumentProcessor._extract_pptx_bytes(bio)
+        elif ext == '.txt':
+            text = file_bytes.decode('utf-8', errors='ignore')
         elif ext in ['.jpg', '.jpeg', '.png', '.webp']:
             from app.services.ai_service import AIService
             text = f"[Image Content Analysis]\n{AIService.generate_image_caption(file_bytes)}"
