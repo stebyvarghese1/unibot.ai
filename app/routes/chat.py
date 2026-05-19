@@ -160,9 +160,9 @@ def chat():
         # Update search filter with finalized values for vector retrieval
         search_filter = {}
         if mode == 'syllabus':
-            if course: search_filter['course'] = course
-            if semester: search_filter['semester'] = semester
-            if subject: search_filter['subject'] = subject
+            if course: search_filter['course'] = course.strip().upper()
+            if semester: search_filter['semester'] = semester.strip().upper()
+            if subject: search_filter['subject'] = subject.strip().upper()
         elif mode == 'general':
             search_filter['doc_type'] = 'general'
 
