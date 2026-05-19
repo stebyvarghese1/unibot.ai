@@ -32,9 +32,9 @@ def rebuild_index_from_db():
         doc_map = {d.id: {
             'doc_type': d.doc_type, 
             'filename': d.filename,
-            'course': d.course,
-            'semester': d.semester,
-            'subject': d.subject
+            'course': d.course.strip().upper() if d.course else None,
+            'semester': d.semester.strip().upper() if d.semester else None,
+            'subject': d.subject.strip().upper() if d.subject else None
         } for d in docs}
         
         # 3. Get the singleton vector store instance
@@ -103,9 +103,9 @@ def rebuild_index_from_db():
                                 'doc_id': d.id,
                                 'filename': d.filename,
                                 'doc_type': 'unit_summary',
-                                'course': d.course,
-                                'semester': d.semester,
-                                'subject': d.subject,
+                                'course': d.course.strip().upper() if d.course else None,
+                                'semester': d.semester.strip().upper() if d.semester else None,
+                                'subject': d.subject.strip().upper() if d.subject else None,
                                 'unit_title': title
                             })
                             
