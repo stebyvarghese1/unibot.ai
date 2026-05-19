@@ -38,11 +38,9 @@ class AIService:
             hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
             fallbacks = [
                 hf_model,
-                "Qwen/Qwen2.5-3B-Instruct",
-                "meta-llama/Llama-3.2-3B-Instruct",
-                "meta-llama/Llama-3.2-1B-Instruct",
                 "Qwen/Qwen2.5-7B-Instruct",
-                "mistralai/Mistral-7B-Instruct-v0.3"
+                "Qwen/Qwen2.5-72B-Instruct",
+                "meta-llama/Llama-3.2-1B-Instruct"
             ]
             
             for mdl in fallbacks:
@@ -372,10 +370,8 @@ class AIService:
             fallbacks = [
                 hf_model,
                 "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-                "meta-llama/Llama-3.2-1B-Instruct",
-                "meta-llama/Llama-3.2-3B-Instruct",
                 "Qwen/Qwen2.5-7B-Instruct",
-                "google/gemma-2-9b-it"
+                "meta-llama/Llama-3.2-1B-Instruct"
             ]
             
             for mdl in fallbacks:
@@ -497,10 +493,9 @@ class AIService:
             primary_model = current_app.config.get("HF_SYLLABUS_MODEL") if current_app else Config.HF_SYLLABUS_MODEL
             fallbacks = [
                 primary_model,
-                "mistralai/Mistral-7B-Instruct-v0.3",
                 "Qwen/Qwen2.5-7B-Instruct",
-                "google/gemma-2-9b-it",
-                "meta-llama/Llama-3.2-3B-Instruct"
+                "Qwen/Qwen2.5-72B-Instruct",
+                "meta-llama/Llama-3.2-1B-Instruct"
             ]
 
             out = ""
