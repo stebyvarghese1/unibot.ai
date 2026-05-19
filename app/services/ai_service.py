@@ -38,6 +38,7 @@ class AIService:
             hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
             fallbacks = [
                 hf_model,
+                "Qwen/Qwen2.5-3B-Instruct",
                 "meta-llama/Llama-3.2-3B-Instruct",
                 "meta-llama/Llama-3.2-1B-Instruct",
                 "Qwen/Qwen2.5-7B-Instruct",
@@ -187,6 +188,7 @@ class AIService:
             hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
             hf_fallbacks = [
                 hf_model,
+                "Qwen/Qwen2.5-3B-Instruct",
                 "meta-llama/Llama-3.2-3B-Instruct",
                 "meta-llama/Llama-3.2-1B-Instruct",
                 "Qwen/Qwen2.5-7B-Instruct",
@@ -265,6 +267,8 @@ class AIService:
                 fallbacks.append(primary)
             
             robust_models = [
+                "Qwen/Qwen2.5-3B-Instruct",
+                "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
                 "meta-llama/Llama-3.2-3B-Instruct",
                 "meta-llama/Llama-3.2-1B-Instruct",
                 "Qwen/Qwen2.5-7B-Instruct",
@@ -372,6 +376,7 @@ class AIService:
             hf_model = current_app.config.get("HF_SMALLTALK_MODEL") if current_app else Config.HF_SMALLTALK_MODEL
             fallbacks = [
                 hf_model,
+                "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
                 "meta-llama/Llama-3.2-1B-Instruct",
                 "meta-llama/Llama-3.2-3B-Instruct",
                 "Qwen/Qwen2.5-7B-Instruct",
