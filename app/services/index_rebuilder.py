@@ -6,7 +6,7 @@ import logging
 
 def rebuild_index_from_db():
     """Rebuild the vector index from database documents on app startup"""
-    print("🔄 Rebuilding vector index from database...")
+    print("[INFO] Rebuilding vector index from database...")
     logging.info("Starting vector index rebuild from database")
     
     task_name = "rebuild"
@@ -18,7 +18,7 @@ def rebuild_index_from_db():
         chunks = DocumentChunk.query.all()
 
         if not chunks:
-            print("⚠️ No chunks found in DB")
+            print("[WARN] No chunks found in DB")
             logging.info("No document chunks found in database")
             TaskTracker.complete_task(task_name, "No data to rebuild")
             return
@@ -127,4 +127,4 @@ def rebuild_index_from_db():
     except Exception as e:
         logging.error(f"Error rebuilding vector index from database: {e}", exc_info=True)
         TaskTracker.complete_task(task_name, f"Error: {str(e)}")
-        raise
+        raise
