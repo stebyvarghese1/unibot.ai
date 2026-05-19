@@ -188,11 +188,9 @@ class AIService:
             hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
             hf_fallbacks = [
                 hf_model,
-                "Qwen/Qwen2.5-3B-Instruct",
-                "meta-llama/Llama-3.2-3B-Instruct",
-                "meta-llama/Llama-3.2-1B-Instruct",
                 "Qwen/Qwen2.5-7B-Instruct",
-                "mistralai/Mistral-7B-Instruct-v0.3"
+                "Qwen/Qwen2.5-72B-Instruct",
+                "meta-llama/Llama-3.2-1B-Instruct"
             ]
 
             for mdl in hf_fallbacks:
@@ -267,12 +265,9 @@ class AIService:
                 fallbacks.append(primary)
             
             robust_models = [
-                "Qwen/Qwen2.5-3B-Instruct",
-                "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-                "meta-llama/Llama-3.2-3B-Instruct",
-                "meta-llama/Llama-3.2-1B-Instruct",
                 "Qwen/Qwen2.5-7B-Instruct",
-                "mistralai/Mistral-7B-Instruct-v0.3"
+                "Qwen/Qwen2.5-72B-Instruct",
+                "meta-llama/Llama-3.2-1B-Instruct"
             ]
             for m in robust_models:
                 if m not in fallbacks:
