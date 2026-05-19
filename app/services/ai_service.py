@@ -452,7 +452,7 @@ class AIService:
                 return f" [Image Description: {caption['generated_text']}] "
             elif isinstance(caption, list) and len(caption) > 0 and 'generated_text' in caption[0]:
                  return f" [Image Description: {caption[0]['generated_text']}] "
-            return " [Image Description: {str(caption)}] "
+            return f" [Image Description: {str(caption)}] "
             
         except Exception as e:
             # Fallback or error logging
