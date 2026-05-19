@@ -109,9 +109,9 @@ def process_document_task(doc_id):
                                     'doc_id': doc_id,
                                     'filename': doc.filename,
                                     'doc_type': 'unit_summary',
-                                    'course': doc.course,
-                                    'semester': doc.semester,
-                                    'subject': doc.subject,
+                                    'course': doc.course.strip().upper() if doc.course else None,
+                                    'semester': doc.semester.strip().upper() if doc.semester else None,
+                                    'subject': doc.subject.strip().upper() if doc.subject else None,
                                     'unit_title': title
                                 })
                             
@@ -152,9 +152,9 @@ def process_document_task(doc_id):
                 'chunk_id': chunk_obj.id,
                 'filename': doc.filename,
                 'doc_type': doc.doc_type,
-                'course': doc.course,
-                'semester': doc.semester,
-                'subject': doc.subject
+                'course': doc.course.strip().upper() if doc.course else None,
+                'semester': doc.semester.strip().upper() if doc.semester else None,
+                'subject': doc.subject.strip().upper() if doc.subject else None
             })
             
         vector_store.add_texts(chunk_texts, chunk_metas)
