@@ -131,7 +131,66 @@ class AIService:
         return all_embeddings
 
     @staticmethod
+    def normalize_syllabus_question(question, syllabus_json_str):
+        if not syllabus_json_str or not question:
+            return question
+            
+        try:
+            import json
+            import re
+            
+            data = json.loads(syllabus_json_str)
+            units = data.get("units", [])
+            if not units:
+                return question
+                
+            arabic_to_roman = {
+                1: "I", 2: "II", 3: "III", 4: "IV", 5: "V",
+                6: "VI", 7: "VII", 8: "VIII", 9: "IX", 10: "X"
+            }
+            
+            words_to_num = {
+                "first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5,
+                "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10,
+                "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+                "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10
+            }
+            
+            q_lower = question.lower().strip()
+            
+            for word, num in words_to_num.items():
+                q_lower = re.sub(rf"\b{word}\b", str(num), q_lower)
+                
+            for idx, unit in enumerate(units):
+                title = unit.get("title", "")
+                if not title:
+                    continue
+                    
+                unit_num = idx + 1
+                roman_num = arabic_to_roman.get(unit_num, "")
+                
+                patterns = [
+                    rf"\b(unit|module|chapter|section)\s+{unit_num}\b",
+                    rf"\b{unit_num}\s+(unit|module|chapter|section)\b",
+                    rf"\b(unit|module|chapter|section)\s+{roman_num.lower()}\b",
+                    rf"\b{roman_num.lower()}\s+(unit|module|chapter|section)\b"
+                ]
+                
+                for pattern in patterns:
+                    if re.search(pattern, q_lower):
+                        return f"Provide the topics for '{title}' as listed in the syllabus grounding."
+                        
+        except Exception:
+            pass
+            
+        return question
+
+    @staticmethod
     def generate_answer(question, context, mode='syllabus', history=None, syllabus_context=None, custom_sys_prompt=None, user_preferred_name=None, course=None, semester=None, subject=None):
+        # Clean/normalize question terms deterministically for syllabus queries
+        if mode == 'syllabus' and syllabus_context:
+            question = AIService.normalize_syllabus_question(question, syllabus_context)
+
         # 1. Base Identity
         base_identity = "You are a sophisticated AI-powered Intelligence Assistant. Your name is Unibot."
         
