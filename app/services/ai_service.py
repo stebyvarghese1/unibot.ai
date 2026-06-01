@@ -151,7 +151,7 @@ class AIService:
                 " Use this to be friendly, but don't overdo it.\n"
                 "3. ADAPTIVE ROLE: In STUDIES mode, rely entirely on syllabus and academic documents. In GENERAL mode, rely entirely on university general documents. Do not answer outside of this scope.\n"
                 "4. NATURAL SPEECH: Answer directly. NEVER mention 'provided context' or 'the text'. Avoid phrases like 'Based on the information provided...'.\n"
-                "5. STRICT GROUNDING: You are a strict RAG chatbot. You MUST answer strictly using ONLY the provided context. If the provided context is empty or does not contain the answer, you MUST politely state that you do not have the information in your knowledge base. NEVER use your general pre-trained knowledge to answer questions.\n"
+                "5. STRICT GROUNDING: You are a strict RAG chatbot. You MUST answer strictly using ONLY the provided context and the SYLLABUS GROUNDING information (if provided). If both are empty or do not contain the answer, you MUST politely state that you do not have the information in your knowledge base. NEVER use your general pre-trained knowledge to answer questions.\n"
                 "6. SYLLABUS PRIORITY: For questions about curriculum structure, Units, Modules, or specific topics, you MUST prioritize the **SYLLABUS GROUNDING** section. Provide the topics exactly as listed in the official curriculum.\n"
                 "7. GROUNDING SAFEGUARD: If you are in STUDIES (SYLLABUS) mode and the SYLLABUS GROUNDING section is missing or empty, and the user asks for topics/curriculum, you MUST politely explain that you don't have their specific subject's syllabus yet. Ask them to ensure their **Course, Semester, and Subject** are correctly set in their profile or the sidebar.\n"
                 "8. HELPFULNESS: Never be dismissive. If you don't know something, suggest where the user might find it or offer related helpful information.\n"
@@ -161,11 +161,11 @@ class AIService:
         if syllabus_context:
             course_label = (course or "Academic").upper()
             sys_prompt += (
-                f"\n\n### SYLLABUS GROUNDING (Subject: {subject or course_label})\n"
-                f"{syllabus_context}\n"
-                "The above JSON block is the **OFFICIAL STRUCTURE** for this subject. \n"
-                " - If the user asks 'what are the topics', 'give me the syllabus', or 'what is in Module/Unit X', you MUST use the titles and topics from this JSON.\n"
-                " - Maintain the exact terminology used in the JSON.\n"
+                f"\n\n### SYLLABUS GROUNDING ROLE\n"
+                "You are provided with a `<syllabus_grounding>` JSON block in the user message containing the official course structure. \n"
+                " - If the user asks 'what are the topics', 'give me the syllabus', or 'what is in Module/Unit X', you MUST use the titles and topics from that JSON.\n"
+                " - Maintain the exact terminology of the topics as listed in the JSON (do not paraphrase or summarize the topic names).\n"
+                " - Note: 'Unit', 'Module', 'Chapter', and 'Section' are equivalent terms. The user may use them interchangeably and use digits (e.g., 'Unit 4', 'Module 4') or Roman numerals (e.g., 'Unit IV', 'Module IV'). Map them correctly to the corresponding division in the JSON structure (e.g., 'Module 4' maps to 'Unit IV' or 'Unit 4').\n"
                 " - If the JSON topics are detailed, include that detail in your answer."
             )
 
@@ -173,9 +173,34 @@ class AIService:
         messages = [{"role": "system", "content": sys_prompt}]
         if history: messages.extend(history)
         context_str = context if context.strip() else "[NO CONTEXT FOUND IN KNOWLEDGE BASE. STRICT RULE: YOU MUST DECLINE TO ANSWER THIS QUESTION AS NO DATA WAS RETRIEVED.]"
+        
+        if syllabus_context:
+            # Normalize terms to satisfy strict RAG constraints (e.g. Unit/Module)
+            enriched_syllabus = syllabus_context
+            enriched_syllabus = enriched_syllabus.replace('"Unit ', '"Unit/Module ').replace('"unit ', '"unit/module ')
+            enriched_syllabus = enriched_syllabus.replace('"Module ', '"Unit/Module ').replace('"module ', '"unit/module ')
+            
+            user_content = (
+                f"Syllabus Grounding Information (Subject: {subject or 'Academic'}):\n"
+                f"<syllabus_grounding>\n{enriched_syllabus}\n</syllabus_grounding>\n\n"
+                f"Context Information:\n<context>\n{context_str}\n</context>\n\n"
+                "Based STRICTLY on the syllabus grounding and context information provided above, answer the following question. "
+                "If neither the syllabus grounding nor the context contains the answer, you MUST output exactly 'I do not have the information.'\n\n"
+                f"Question: {question}\n\n"
+                "Answer:"
+            )
+        else:
+            user_content = (
+                f"Context Information:\n<context>\n{context_str}\n</context>\n\n"
+                "Based STRICTLY on the context above, answer the following question. "
+                "If the context does not contain the answer, you MUST output exactly 'I do not have the information.'\n\n"
+                f"Question: {question}\n\n"
+                "Answer:"
+            )
+            
         messages.append({
             "role": "user", 
-            "content": f"Context Information:\n<context>\n{context_str}\n</context>\n\nBased STRICTLY on the context above, answer the following question. If the context does not contain the answer, you MUST output exactly 'I do not have the information.'\n\nQuestion: {question}\n\nAnswer:"
+            "content": user_content
         })
 
         # 1. Try Hugging Face (Primary)
