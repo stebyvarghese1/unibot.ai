@@ -208,11 +208,11 @@ class AIService:
                 f"2. USER PERSONALIZATION: The user's name is '{user_preferred_name or 'the student'}'. " +
                 (f"They are studying {course}, in Semester {semester}" + (f" (Subject: {subject})." if subject else ".") if course and semester else "") +
                 " Use this to be friendly, but don't overdo it.\n"
-                "3. ADAPTIVE ROLE: In STUDIES mode, rely entirely on syllabus and academic documents. In GENERAL mode, rely entirely on university general documents. Do not answer outside of this scope.\n"
+                "3. ADAPTIVE ROLE: In STUDIES mode, focus primarily on syllabus and academic documents. In GENERAL mode, focus primarily on university general documents.\n"
                 "4. NATURAL SPEECH: Answer directly. NEVER mention 'provided context' or 'the text'. Avoid phrases like 'Based on the information provided...'.\n"
-                "5. STRICT GROUNDING: You are a strict RAG chatbot. You MUST answer strictly using ONLY the provided context and the SYLLABUS GROUNDING information (if provided). If both are empty or do not contain the answer, you MUST politely state that you do not have the information in your knowledge base. NEVER use your general pre-trained knowledge to answer questions.\n"
+                "5. GROUNDING PRIORITY: Prioritize using the provided context and the SYLLABUS GROUNDING information (if provided) to answer. If both are empty or do not contain the answer, you should use your general pre-trained knowledge to provide a helpful, accurate, and professional answer.\n"
                 "6. SYLLABUS PRIORITY: For questions about curriculum structure, Units, Modules, or specific topics, you MUST prioritize the **SYLLABUS GROUNDING** section. Provide the topics exactly as listed in the official curriculum.\n"
-                "7. GROUNDING SAFEGUARD: If you are in STUDIES (SYLLABUS) mode and the SYLLABUS GROUNDING section is missing or empty, and the user asks for topics/curriculum, you MUST politely explain that you don't have their specific subject's syllabus yet. Ask them to ensure their **Course, Semester, and Subject** are correctly set in their profile or the sidebar.\n"
+                "7. GROUNDING SAFEGUARD: If you are in STUDIES (SYLLABUS) mode and the SYLLABUS GROUNDING section is missing or empty, and the user asks for topics/curriculum, you may explain what topics are generally expected for the subject while suggesting they ensure their Course, Semester, and Subject are correctly set.\n"
                 "8. HELPFULNESS: Never be dismissive. If you don't know something, suggest where the user might find it or offer related helpful information.\n"
                 "9. FORMATTING: Use professional Markdown. Use bold for key terms and bullet points for lists."
             )
@@ -231,7 +231,7 @@ class AIService:
         # Build messages
         messages = [{"role": "system", "content": sys_prompt}]
         if history: messages.extend(history)
-        context_str = context if context.strip() else "[NO CONTEXT FOUND IN KNOWLEDGE BASE. STRICT RULE: YOU MUST DECLINE TO ANSWER THIS QUESTION AS NO DATA WAS RETRIEVED.]"
+        context_str = context if context.strip() else "[NO CONTEXT FOUND IN KNOWLEDGE BASE]"
         
         if syllabus_context:
             # Normalize terms to satisfy strict RAG constraints (e.g. Unit/Module)
@@ -243,16 +243,16 @@ class AIService:
                 f"Syllabus Grounding Information (Subject: {subject or 'Academic'}):\n"
                 f"<syllabus_grounding>\n{enriched_syllabus}\n</syllabus_grounding>\n\n"
                 f"Context Information:\n<context>\n{context_str}\n</context>\n\n"
-                "Based STRICTLY on the syllabus grounding and context information provided above, answer the following question. "
-                "If neither the syllabus grounding nor the context contains the answer, you MUST output exactly 'I do not have the information.'\n\n"
+                "Based on the syllabus grounding and context information provided above, answer the following question. "
+                "If the answer cannot be found in the provided information, you may use your pre-trained knowledge to answer the question.\n\n"
                 f"Question: {question}\n\n"
                 "Answer:"
             )
         else:
             user_content = (
                 f"Context Information:\n<context>\n{context_str}\n</context>\n\n"
-                "Based STRICTLY on the context above, answer the following question. "
-                "If the context does not contain the answer, you MUST output exactly 'I do not have the information.'\n\n"
+                "Based on the context above, answer the following question. "
+                "If the context does not contain the answer, you may use your pre-trained knowledge to answer the question.\n\n"
                 f"Question: {question}\n\n"
                 "Answer:"
             )
