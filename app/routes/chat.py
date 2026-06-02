@@ -125,7 +125,7 @@ def chat():
                     func.lower(Document.subject) == sub_low,
                     Document.doc_type == 'syllabus',
                     Document.status == 'processed'
-                ).order_by(Document.created_at.desc()).first()
+                ).order_by(Document.upload_date.desc()).first()
                 
                 if master_doc and master_doc.structure_json:
                     syllabus_structure = master_doc.structure_json
@@ -141,7 +141,7 @@ def chat():
                 if c_low:
                     query = query.filter(func.lower(Document.course) == c_low)
                 
-                master_doc = query.order_by(Document.created_at.desc()).first()
+                master_doc = query.order_by(Document.upload_date.desc()).first()
                 if master_doc and master_doc.structure_json:
                     syllabus_structure = master_doc.structure_json
                     course, semester, subject = master_doc.course, master_doc.semester, master_doc.subject
@@ -152,10 +152,45 @@ def chat():
                     Document.subject.ilike(f"%{subject.strip()}%"),
                     Document.doc_type == 'syllabus',
                     Document.status == 'processed'
-                ).order_by(Document.created_at.desc()).first()
+                ).order_by(Document.upload_date.desc()).first()
                 if master_doc and master_doc.structure_json:
                     syllabus_structure = master_doc.structure_json
                     course, semester, subject = master_doc.course, master_doc.semester, master_doc.subject
+
+            # Try 4: Course and Semester Match (ignore subject) if still not found
+            if not syllabus_structure and c_low and s_low:
+                master_doc = Document.query.filter(
+                    func.lower(Document.course) == c_low,
+                    func.lower(Document.semester) == s_low,
+                    Document.doc_type == 'syllabus',
+                    Document.status == 'processed'
+                ).order_by(Document.upload_date.desc()).first()
+                if master_doc and master_doc.structure_json:
+                    syllabus_structure = master_doc.structure_json
+                    course, semester, subject = master_doc.course, master_doc.semester, master_doc.subject
+
+            # Try 5: Semester Match only if still not found
+            if not syllabus_structure and s_low:
+                master_doc = Document.query.filter(
+                    func.lower(Document.semester) == s_low,
+                    Document.doc_type == 'syllabus',
+                    Document.status == 'processed'
+                ).order_by(Document.upload_date.desc()).first()
+                if master_doc and master_doc.structure_json:
+                    syllabus_structure = master_doc.structure_json
+                    course, semester, subject = master_doc.course, master_doc.semester, master_doc.subject
+
+            # Try 6: Get the absolute most recently processed syllabus document in the database
+            if not syllabus_structure:
+                master_doc = Document.query.filter(
+                    Document.doc_type == 'syllabus',
+                    Document.status == 'processed'
+                ).order_by(Document.upload_date.desc()).first()
+                if master_doc and master_doc.structure_json:
+                    syllabus_structure = master_doc.structure_json
+                    course, semester, subject = master_doc.course, master_doc.semester, master_doc.subject
+
+
 
         # Update search filter with finalized values for vector retrieval
         search_filter = {}
