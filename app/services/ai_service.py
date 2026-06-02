@@ -92,10 +92,7 @@ class AIService:
             hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
             fallbacks = [
                 hf_model,
-                "Qwen/Qwen3-8B",
-                "Qwen/Qwen3-4B-Instruct-2507",
-                "google/gemma-2-9b-it",
-                "Qwen/Qwen2.5-7B-Instruct"
+                "Qwen/Qwen3-8B"
             ]
             
             for mdl in fallbacks:
@@ -321,10 +318,7 @@ class AIService:
             hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
             hf_fallbacks = [
                 hf_model,
-                "Qwen/Qwen3-8B",
-                "Qwen/Qwen3-4B-Instruct-2507",
-                "google/gemma-2-9b-it",
-                "Qwen/Qwen2.5-7B-Instruct"
+                "Qwen/Qwen3-8B"
             ]
 
             for mdl in hf_fallbacks:
@@ -405,10 +399,7 @@ class AIService:
                 fallbacks.append(primary)
             
             robust_models = [
-                "Qwen/Qwen3-8B",
-                "Qwen/Qwen3-4B-Instruct-2507",
-                "google/gemma-2-9b-it",
-                "Qwen/Qwen2.5-7B-Instruct"
+                "Qwen/Qwen3-8B"
             ]
             for m in robust_models:
                 if m not in fallbacks:
@@ -850,10 +841,7 @@ class AIService:
             primary_model = current_app.config.get("HF_SYLLABUS_MODEL") if current_app else Config.HF_SYLLABUS_MODEL
             fallbacks = [
                 primary_model,
-                "Qwen/Qwen3-8B",
-                "Qwen/Qwen3-4B-Instruct-2507",
-                "google/gemma-2-9b-it",
-                "Qwen/Qwen2.5-7B-Instruct"
+                "Qwen/Qwen3-8B"
             ]
 
             credits_depleted = False
