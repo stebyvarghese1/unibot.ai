@@ -621,7 +621,7 @@ class AIService:
         import re
         import json
         
-        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        raw_lines = [line.strip() for line in text.splitlines() if line.strip()]
         
         # Pass 1: Look for Unit / Module / Chapter / Section headings
         unit_pattern = re.compile(
@@ -634,9 +634,36 @@ class AIService:
             re.IGNORECASE
         )
         
+        connecting_words = {
+            'and', 'or', 'of', 'for', 'with', 'the', 'a', 'an', 'to', 'in', 'at', 'by', 'from',
+            'under', 'over', 'on', 'into', 'through', 'during', 'including', 'such', 'as'
+        }
+        
         def split_topic_line(text_line):
+            # 1. Split by colon first (if not part of http/https)
+            if ':' in text_line and not any(text_line.startswith(proto) for proto in ['http:', 'https:']):
+                parts = []
+                for p in text_line.split(':'):
+                    parts.extend(split_topic_line(p))
+                return parts
+                
+            # 2. Split by semicolon
             if ';' in text_line:
-                return [p.strip() for p in text_line.split(';') if p.strip()]
+                parts = []
+                for p in text_line.split(';'):
+                    parts.extend(split_topic_line(p))
+                return parts
+                
+            # 3. Split by period (sentence boundary)
+            if '.' in text_line:
+                parts = []
+                for p in text_line.split('.'):
+                    p_clean = p.strip()
+                    if p_clean and not p_clean.isdigit():
+                        parts.extend(split_topic_line(p_clean))
+                return parts
+                
+            # 4. Split by comma (no length constraint!)
             if ',' in text_line:
                 raw_parts = text_line.split(',')
                 cleaned_parts = []
@@ -648,14 +675,51 @@ class AIService:
                         p_clean = p_clean[3:].strip()
                     if p_clean:
                         cleaned_parts.append(p_clean)
-                if cleaned_parts and all(len(p) < 60 for p in cleaned_parts):
+                if cleaned_parts:
                     return cleaned_parts
+                    
             return [text_line]
-            
+
+        def merge_continuation_lines(lines_list):
+            merged = []
+            for line in lines_list:
+                line_clean = line.strip()
+                if not line_clean:
+                    continue
+                if not merged:
+                    merged.append(line_clean)
+                    continue
+                
+                prev = merged[-1]
+                should_merge = False
+                
+                if prev.endswith('-'):
+                    should_merge = True
+                elif line_clean[0].islower():
+                    should_merge = True
+                else:
+                    prev_words = prev.split()
+                    if prev_words:
+                        last_word = prev_words[-1].lower().strip(',.;:')
+                        if last_word in connecting_words:
+                            should_merge = True
+                
+                if should_merge:
+                    if prev.endswith('-'):
+                        merged[-1] = prev[:-1] + line_clean
+                    else:
+                        merged[-1] = prev + ' ' + line_clean
+                else:
+                    merged.append(line_clean)
+            return merged
+
         units = []
-        current_unit = None
         
-        for line in lines:
+        # First pass: Group raw lines by unit
+        unit_groups = []
+        current_group = None
+        
+        for line in raw_lines:
             match = unit_pattern.match(line)
             if match:
                 unit_word = match.group(1).strip()
@@ -666,59 +730,85 @@ class AIService:
                 if unit_title:
                     full_title += f": {unit_title}"
                     
-                current_unit = {
+                current_group = {
                     "title": full_title,
-                    "topics": []
+                    "lines": []
                 }
-                units.append(current_unit)
-            elif current_unit is not None:
+                unit_groups.append(current_group)
+            elif current_group is not None:
+                current_group["lines"].append(line)
+                
+        # Process Pass 1 groups
+        for group in unit_groups:
+            processed_topics = []
+            merged_lines = merge_continuation_lines(group["lines"])
+            for line in merged_lines:
                 topic_match = bullet_pattern.match(line)
                 if topic_match:
                     raw_topic = topic_match.group(1).strip()
                     if len(raw_topic) >= 3 and not raw_topic.isdigit():
                         for topic in split_topic_line(raw_topic):
-                            if topic and len(topic) >= 3 and topic not in current_unit["topics"]:
-                                current_unit["topics"].append(topic)
-                                
+                            topic_clean = topic.strip().rstrip(',;: ')
+                            if len(topic_clean) >= 3 and not topic_clean.isdigit() and topic_clean not in processed_topics:
+                                processed_topics.append(topic_clean)
+            units.append({
+                "title": group["title"],
+                "topics": processed_topics
+            })
+            
         # Pass 2: If no units found, look for numerical/alphabetical section headers (e.g. "1. Introduction")
         if not units:
             section_pattern = re.compile(
                 r'^\s*(?:[0-9]+|[IVXLCDM]+|[A-Za-z])\s*[-–—.:]\s*(.+)$'
             )
-            current_unit = None
-            for line in lines:
+            unit_groups = []
+            current_group = None
+            for line in raw_lines:
                 match = section_pattern.match(line)
                 if match:
-                    current_unit = {
+                    current_group = {
                         "title": line,
-                        "topics": []
+                        "lines": []
                     }
-                    units.append(current_unit)
-                elif current_unit is not None:
+                    unit_groups.append(current_group)
+                elif current_group is not None:
+                    current_group["lines"].append(line)
+                    
+            for group in unit_groups:
+                processed_topics = []
+                merged_lines = merge_continuation_lines(group["lines"])
+                for line in merged_lines:
                     topic_match = bullet_pattern.match(line)
                     if topic_match:
                         raw_topic = topic_match.group(1).strip()
                         if len(raw_topic) >= 3 and not raw_topic.isdigit():
                             for topic in split_topic_line(raw_topic):
-                                if topic and len(topic) >= 3 and topic not in current_unit["topics"]:
-                                    current_unit["topics"].append(topic)
-                                    
+                                topic_clean = topic.strip().rstrip(',;: ')
+                                if len(topic_clean) >= 3 and not topic_clean.isdigit() and topic_clean not in processed_topics:
+                                    processed_topics.append(topic_clean)
+                units.append({
+                    "title": group["title"],
+                    "topics": processed_topics
+                })
+                
         # Pass 3: If still no units found, group everything under one default unit
         if not units:
-            default_unit = {
-                "title": "Syllabus Core Topics",
-                "topics": []
-            }
-            for line in lines:
+            processed_topics = []
+            merged_lines = merge_continuation_lines(raw_lines)
+            for line in merged_lines:
                 topic_match = bullet_pattern.match(line)
                 if topic_match:
                     raw_topic = topic_match.group(1).strip()
                     if len(raw_topic) >= 3 and not raw_topic.isdigit():
                         for topic in split_topic_line(raw_topic):
-                            if topic and len(topic) >= 3 and topic not in default_unit["topics"]:
-                                default_unit["topics"].append(topic)
-            if default_unit["topics"]:
-                units.append(default_unit)
+                            topic_clean = topic.strip().rstrip(',;: ')
+                            if len(topic_clean) >= 3 and not topic_clean.isdigit() and topic_clean not in processed_topics:
+                                processed_topics.append(topic_clean)
+            if processed_topics:
+                units.append({
+                    "title": "Syllabus Core Topics",
+                    "topics": processed_topics
+                })
                 
         return json.dumps({"units": units})
 
