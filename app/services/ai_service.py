@@ -625,6 +625,12 @@ class AIService:
             re.IGNORECASE
         )
         
+        # Exclude headings like References, Text Books, Page numbers, etc.
+        exclude_pattern = re.compile(
+            r'^\s*(?:References?|Text\s*Books?|Reference\s*Books?|Suggested\s*(?:Readings?|Read|Books?)|Bibliography|Prescribed\s*Books?|Course\s*(?:Outcomes?|Objectives?)|Evaluation\s*(?:Scheme|Criteria)|Assessment|Grading\s*Policy|Prerequisites?|Page\s*\d+)\b',
+            re.IGNORECASE
+        )
+        
         connecting_words = {
             'and', 'or', 'of', 'for', 'with', 'the', 'a', 'an', 'to', 'in', 'at', 'by', 'from',
             'under', 'over', 'on', 'into', 'through', 'during', 'including', 'such', 'as'
@@ -727,7 +733,10 @@ class AIService:
                 }
                 unit_groups.append(current_group)
             elif current_group is not None:
-                current_group["lines"].append(line)
+                if exclude_pattern.match(line):
+                    current_group = None # Stop collecting lines for this unit
+                else:
+                    current_group["lines"].append(line)
                 
         # Process Pass 1 groups
         for group in unit_groups:
@@ -763,7 +772,10 @@ class AIService:
                     }
                     unit_groups.append(current_group)
                 elif current_group is not None:
-                    current_group["lines"].append(line)
+                    if exclude_pattern.match(line):
+                        current_group = None
+                    else:
+                        current_group["lines"].append(line)
                     
             for group in unit_groups:
                 processed_topics = []
@@ -785,7 +797,13 @@ class AIService:
         # Pass 3: If still no units found, group everything under one default unit
         if not units:
             processed_topics = []
-            merged_lines = merge_continuation_lines(raw_lines)
+            filtered_lines = []
+            for line in raw_lines:
+                if exclude_pattern.match(line):
+                    break
+                filtered_lines.append(line)
+                
+            merged_lines = merge_continuation_lines(filtered_lines)
             for line in merged_lines:
                 topic_match = bullet_pattern.match(line)
                 if topic_match:
