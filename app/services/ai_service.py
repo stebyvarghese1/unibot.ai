@@ -13,72 +13,6 @@ def approx_tokens(text: str) -> int:
 
 class AIService:
     @staticmethod
-    def _query_free_serverless_api(messages, model, max_tokens=1000, temperature=0.2):
-        """Query HuggingFace's free Serverless Inference API directly using requests.post"""
-        try:
-            import requests
-            import time
-            
-            token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
-            if not token:
-                logging.warning("No Hugging Face token found for free serverless API query.")
-                return None
-                
-            prompt = ""
-            for msg in messages:
-                role = msg.get('role', 'user')
-                content = msg.get('content', '')
-                if role == 'system':
-                    prompt += f"<|im_start|>system\n{content}<|im_end|>\n"
-                elif role == 'user':
-                    prompt += f"<|im_start|>user\n{content}<|im_end|>\n"
-                elif role == 'assistant':
-                    prompt += f"<|im_start|>assistant\n{content}<|im_end|>\n"
-            prompt += "<|im_start|>assistant\n"
-            
-            url = f"https://api-inference.huggingface.co/models/{model}"
-            headers = {
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "inputs": prompt,
-                "parameters": {
-                    "max_new_tokens": max_tokens,
-                    "temperature": temperature,
-                    "return_full_text": False
-                }
-            }
-            
-            for attempt in range(3):
-                try:
-                    response = requests.post(url, headers=headers, json=payload, timeout=45)
-                    if response.status_code == 200:
-                        res_json = response.json()
-                        if isinstance(res_json, list) and len(res_json) > 0:
-                            text = res_json[0].get('generated_text', '')
-                            text = text.replace("<|im_end|>", "").strip()
-                            return text
-                        elif isinstance(res_json, dict) and 'generated_text' in res_json:
-                            return res_json['generated_text'].replace("<|im_end|>", "").strip()
-                    elif response.status_code == 503:
-                        res_err = response.json()
-                        est_time = res_err.get("estimated_time", 10.0)
-                        logging.warning(f"Model {model} is loading. Waiting for {est_time}s (attempt {attempt + 1})...")
-                        time.sleep(min(est_time, 15.0))
-                        continue
-                    else:
-                        logging.warning(f"Free Serverless API query for {model} returned status {response.status_code}: {response.text}")
-                        break
-                except Exception as inner_e:
-                    logging.warning(f"Attempt {attempt + 1} for free API query failed: {inner_e}")
-                    time.sleep(2)
-                    continue
-        except Exception as e:
-            logging.error(f"Free Serverless API direct query failed: {e}")
-        return None
-
-    @staticmethod
     def rewrite_query(question, history):
         """Rewrite the user's question to be self-contained based on conversation history."""
         if not history:
@@ -91,30 +25,24 @@ class AIService:
             role = "Assistant" if m['role'] == 'assistant' else "User"
             history_str += f"{role}: {m['content'][:250]}...\n" if len(m['content']) > 250 else f"{role}: {m['content']}\n"
 
-        rewrite_messages = [
-            {"role": "system", "content": "You are a query refiner. Rewrite the user's latest message to be a STANDALONE search query using the provided history. Return ONLY the rewritten text. DO NOT answer the question."},
-            {"role": "user", "content": f"History:\n{history_str}\n\nLatest Message: {question}\n\nStandalone Query:"}
-        ]
-
-        # Use the Free Serverless Inference API directly as primary
-        hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
-        fallbacks = [
-            hf_model,
-            "google/gemma-2-9b-it",
-            "google/gemma-2-2b-it",
-            "Qwen/Qwen2.5-7B-Instruct",
-            "meta-llama/Llama-3.2-1B-Instruct"
-        ]
-        for mdl in fallbacks:
-            if not mdl: continue
-            res = AIService._query_free_serverless_api(rewrite_messages, mdl, max_tokens=100, temperature=0.0)
-            if res and len(res) > 2:
-                return res
-
-        # Try Hugging Face Inference Providers Client as fallback
+        # Try Hugging Face first (Primary with robust fallbacks)
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
             client = InferenceClient(token=token, timeout=12)
+            
+            rewrite_messages = [
+                {"role": "system", "content": "You are a query refiner. Rewrite the user's latest message to be a STANDALONE search query using the provided history. Return ONLY the rewritten text. DO NOT answer the question."},
+                {"role": "user", "content": f"History:\n{history_str}\n\nLatest Message: {question}\n\nStandalone Query:"}
+            ]
+            
+            hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
+            fallbacks = [
+                hf_model,
+                "Qwen/Qwen3-8B",
+                "Qwen/Qwen3-4B-Instruct-2507",
+                "google/gemma-2-9b-it",
+                "Qwen/Qwen2.5-7B-Instruct"
+            ]
             
             for mdl in fallbacks:
                 if not mdl: continue
@@ -335,27 +263,21 @@ class AIService:
             "content": user_content
         })
 
-        # Try Free Serverless API first (Primary)
-        hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
-        hf_fallbacks = [
-            hf_model,
-            "google/gemma-2-9b-it",
-            "google/gemma-2-2b-it",
-            "Qwen/Qwen2.5-7B-Instruct",
-            "meta-llama/Llama-3.2-1B-Instruct"
-        ]
-        for mdl in hf_fallbacks:
-            if not mdl: continue
-            res = AIService._query_free_serverless_api(messages, mdl, max_tokens=1200, temperature=0.2)
-            if res:
-                return res
-
-        # Try Hugging Face Inference Providers (as fallback)
+        # 1. Try Hugging Face (Primary)
         credits_depleted = False
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
             hf_client = InferenceClient(token=token, timeout=45)
             
+            hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
+            hf_fallbacks = [
+                hf_model,
+                "Qwen/Qwen3-8B",
+                "Qwen/Qwen3-4B-Instruct-2507",
+                "google/gemma-2-9b-it",
+                "Qwen/Qwen2.5-7B-Instruct"
+            ]
+
             for mdl in hf_fallbacks:
                 if not mdl: continue
                 try:
@@ -437,23 +359,15 @@ class AIService:
                 fallbacks.append(primary)
             
             robust_models = [
+                "Qwen/Qwen3-8B",
+                "Qwen/Qwen3-4B-Instruct-2507",
                 "google/gemma-2-9b-it",
-                "google/gemma-2-2b-it",
-                "Qwen/Qwen2.5-7B-Instruct",
-                "meta-llama/Llama-3.2-1B-Instruct"
+                "Qwen/Qwen2.5-7B-Instruct"
             ]
             for m in robust_models:
                 if m not in fallbacks:
                     fallbacks.append(m)
             
-            # Try Free Serverless API first (Primary)
-            for mdl in fallbacks:
-                if not mdl: continue
-                res = AIService._query_free_serverless_api(messages, mdl, max_tokens=1300, temperature=0.2)
-                if res:
-                    return res
-
-            # Try Hugging Face Inference Providers (as fallback)
             credits_depleted = False
             for mdl in fallbacks:
                 if not mdl:
@@ -553,40 +467,31 @@ class AIService:
 
     @staticmethod
     def generate_smalltalk(text: str, user_preferred_name=None, course=None, semester=None, subject=None):
-        hf_model = current_app.config.get("HF_SMALLTALK_MODEL") if current_app else Config.HF_SMALLTALK_MODEL
-        fallbacks = [
-            hf_model,
-            "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-            "google/gemma-2-2b-it",
-            "Qwen/Qwen2.5-7B-Instruct",
-            "meta-llama/Llama-3.2-1B-Instruct"
-        ]
-        
-        smalltalk_messages = [
-            {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + 
-             (f"The user is {user_preferred_name}, studying {course} (Semester {semester})" + (f", specifically {subject}." if subject else ".") if user_preferred_name and course and semester else "") +
-             (f" IMPORTANT: You MUST start your response by greeting the user by their name '{user_preferred_name}' (e.g. 'Hello {user_preferred_name}!')" if user_preferred_name else "")},
-            {"role": "user", "content": text}
-        ]
-
-        # Try Free Serverless API first (Primary)
-        for mdl in fallbacks:
-            if not mdl: continue
-            res = AIService._query_free_serverless_api(smalltalk_messages, mdl, max_tokens=64, temperature=0.7)
-            if res:
-                return res
-
-        # Try Hugging Face Inference Providers (as fallback)
         credits_depleted = False
+        # Try Hugging Face first (Primary with robust fallbacks)
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
             hf_client = InferenceClient(token=token, timeout=8)
+            
+            hf_model = current_app.config.get("HF_SMALLTALK_MODEL") if current_app else Config.HF_SMALLTALK_MODEL
+            fallbacks = [
+                hf_model,
+                "Qwen/Qwen3-4B-Instruct-2507",
+                "google/gemma-2-2b-it",
+                "Qwen/Qwen2.5-7B-Instruct",
+                "meta-llama/Llama-3.2-1B-Instruct"
+            ]
             
             for mdl in fallbacks:
                 if not mdl: continue
                 try:
                     response = hf_client.chat_completion(
-                        messages=smalltalk_messages,
+                        messages=[
+                            {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + 
+                             (f"The user is {user_preferred_name}, studying {course} (Semester {semester})" + (f", specifically {subject}." if subject else ".") if user_preferred_name and course and semester else "") +
+                             (f" IMPORTANT: You MUST start your response by greeting the user by their name '{user_preferred_name}' (e.g. 'Hello {user_preferred_name}!')" if user_preferred_name else "")},
+                            {"role": "user", "content": text}
+                        ],
                         model=mdl,
                         max_tokens=64,
                         temperature=0.7
@@ -705,52 +610,41 @@ class AIService:
             primary_model = current_app.config.get("HF_SYLLABUS_MODEL") if current_app else Config.HF_SYLLABUS_MODEL
             fallbacks = [
                 primary_model,
+                "Qwen/Qwen3-8B",
+                "Qwen/Qwen3-4B-Instruct-2507",
                 "google/gemma-2-9b-it",
-                "google/gemma-2-2b-it",
-                "Qwen/Qwen2.5-7B-Instruct",
-                "meta-llama/Llama-3.2-1B-Instruct"
+                "Qwen/Qwen2.5-7B-Instruct"
             ]
 
-            syllabus_messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Syllabus Text:\n{processed_text}\n\nStrict JSON Knowledge Map:"}
-            ]
-
-            # Try Free Serverless API first (Primary)
+            credits_depleted = False
             out = ""
             for mdl in fallbacks:
                 if not mdl: continue
-                res = AIService._query_free_serverless_api(syllabus_messages, mdl, max_tokens=2500, temperature=0.1)
-                if res and len(res.strip()) > 5:
-                    out = res
-                    break
-
-            if not out:
-                # Try Hugging Face Inference Providers (as fallback)
-                credits_depleted = False
-                for mdl in fallbacks:
-                    if not mdl: continue
-                    try:
-                        response = client.chat_completion(
-                            messages=syllabus_messages,
-                            model=mdl,
-                            max_tokens=2500,
-                            temperature=0.1
-                        )
-                        
-                        if hasattr(response, 'choices'):
-                            out = response.choices[0].message.content
-                        else:
-                            out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
-                        
-                        if out and len(out.strip()) > 5:
-                            break # Success
-                    except Exception as e:
-                        err_str = str(e).lower()
-                        if "402" in err_str or "payment required" in err_str or "credits" in err_str:
-                            credits_depleted = True
-                        logging.warning(f"Syllabus extraction attempt with {mdl} failed: {e}")
-                        continue
+                try:
+                    messages = [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"Syllabus Text:\n{processed_text}\n\nStrict JSON Knowledge Map:"}
+                    ]
+                    response = client.chat_completion(
+                        messages=messages,
+                        model=mdl,
+                        max_tokens=2500,
+                        temperature=0.1
+                    )
+                    
+                    if hasattr(response, 'choices'):
+                        out = response.choices[0].message.content
+                    else:
+                        out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
+                    
+                    if out and len(out.strip()) > 5:
+                        break # Success
+                except Exception as e:
+                    err_str = str(e).lower()
+                    if "402" in err_str or "payment required" in err_str or "credits" in err_str:
+                        credits_depleted = True
+                    logging.warning(f"Syllabus extraction attempt with {mdl} failed: {e}")
+                    continue
 
             if not out:
                 if credits_depleted:
