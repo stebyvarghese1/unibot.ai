@@ -13,6 +13,61 @@ def approx_tokens(text: str) -> int:
 
 class AIService:
     @staticmethod
+    def _chat_completion_with_fallback(messages, model, token, max_tokens=1200, temperature=0.2, timeout=45):
+        """
+        Run chat completion with a model.
+        First tries the metered Inference Providers router.
+        If it fails due to credit exhaustion (402 Payment Required),
+        it falls back to the free Serverless Inference Hub.
+        """
+        # 1. Try metered Inference Providers router
+        try:
+            client = InferenceClient(token=token, timeout=timeout)
+            response = client.chat_completion(
+                messages=messages,
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            if hasattr(response, 'choices'):
+                out = response.choices[0].message.content
+            else:
+                out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
+            if out and len(out.strip()) > 0:
+                return out.strip()
+        except Exception as e:
+            err_str = str(e).lower()
+            if "402" not in err_str and "payment required" not in err_str and "credits" not in err_str:
+                raise e
+            logging.warning(f"Metered router failed with 402 for {model}. Falling back to free serverless endpoint...")
+            
+        # 2. Fallback to free Serverless Inference Hub
+        base_url = f"https://api-inference.huggingface.co/models/{model}"
+        client_free = InferenceClient(token=token, base_url=base_url, timeout=timeout)
+        
+        for attempt in range(5):
+            try:
+                response = client_free.chat_completion(
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature
+                )
+                if hasattr(response, 'choices'):
+                    out = response.choices[0].message.content
+                else:
+                    out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
+                if out and len(out.strip()) > 0:
+                    return out.strip()
+            except Exception as free_ex:
+                free_err = str(free_ex).lower()
+                if ("loading" in free_err or "503" in free_err or "currently loading" in free_err) and attempt < 4:
+                    time.sleep(6 * (attempt + 1))
+                    continue
+                raise free_ex
+                
+        raise RuntimeError(f"Model {model} failed on both metered router and free serverless endpoint.")
+
+    @staticmethod
     def rewrite_query(question, history):
         """Rewrite the user's question to be self-contained based on conversation history."""
         if not history:
@@ -28,7 +83,6 @@ class AIService:
         # Try Hugging Face first (Primary with robust fallbacks)
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
-            client = InferenceClient(token=token, timeout=12)
             
             rewrite_messages = [
                 {"role": "system", "content": "You are a query refiner. Rewrite the user's latest message to be a STANDALONE search query using the provided history. Return ONLY the rewritten text. DO NOT answer the question."},
@@ -47,18 +101,14 @@ class AIService:
             for mdl in fallbacks:
                 if not mdl: continue
                 try:
-                    response = client.chat_completion(
+                    result = AIService._chat_completion_with_fallback(
                         messages=rewrite_messages,
                         model=mdl,
+                        token=token,
                         max_tokens=100,
-                        temperature=0.0
+                        temperature=0.0,
+                        timeout=12
                     )
-                    
-                    if hasattr(response, 'choices'):
-                        result = response.choices[0].message.content
-                    else:
-                        result = response.get('choices', [{}])[0].get('message', {}).get('content', '')
-                    
                     result = (result or "").strip().strip('"').strip("'").strip()
                     if result and len(result) > 2:
                         return result
@@ -267,7 +317,6 @@ class AIService:
         credits_depleted = False
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
-            hf_client = InferenceClient(token=token, timeout=45)
             
             hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
             hf_fallbacks = [
@@ -281,17 +330,14 @@ class AIService:
             for mdl in hf_fallbacks:
                 if not mdl: continue
                 try:
-                    response = hf_client.chat_completion(
+                    out = AIService._chat_completion_with_fallback(
                         messages=messages,
                         model=mdl,
+                        token=token,
                         max_tokens=1200,
-                        temperature=0.2
+                        temperature=0.2,
+                        timeout=45
                     )
-                    if hasattr(response, 'choices'):
-                        out = response.choices[0].message.content
-                    else:
-                        out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
-                        
                     if out and len(out.strip()) > 0:
                         return out.strip()
                 except Exception as inner_ex:
@@ -373,19 +419,14 @@ class AIService:
                 if not mdl:
                     continue
                 try:
-                    # Try chat completion API
-                    response = client.chat_completion(
+                    out = AIService._chat_completion_with_fallback(
                         messages=messages,
                         model=mdl,
-                        max_tokens=1300,  # Larger for web content
-                        temperature=0.2
+                        token=token or Config.HUGGINGFACE_API_TOKEN,
+                        max_tokens=1300,
+                        temperature=0.2,
+                        timeout=45
                     )
-                    
-                    if hasattr(response, 'choices'):
-                        out = response.choices[0].message.content
-                    else:
-                        out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
-                        
                     if out and len(out.strip()) > 0:
                         return out.strip()
                 except Exception as e:
@@ -395,13 +436,14 @@ class AIService:
                     logging.warning(f"Website chat completion failed with {mdl}: {e}")
                     # Fallback to legacy text generation
                     try:
+                        client_legacy = InferenceClient(token=token or Config.HUGGINGFACE_API_TOKEN, timeout=45)
                         prompt_legacy = (
                             "Instruction: Analyze the following webpage content and answer the question.\n"
                             f"Webpage Content:\n{context}\n\n"
                             f"Question: {question}\n\n"
                             "Answer:"
                         )
-                        out = client.text_generation(
+                        out = client_legacy.text_generation(
                             prompt_legacy,
                             model=mdl,
                             max_new_tokens=1200,
@@ -471,7 +513,6 @@ class AIService:
         # Try Hugging Face first (Primary with robust fallbacks)
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
-            hf_client = InferenceClient(token=token, timeout=8)
             
             hf_model = current_app.config.get("HF_SMALLTALK_MODEL") if current_app else Config.HF_SMALLTALK_MODEL
             fallbacks = [
@@ -485,7 +526,7 @@ class AIService:
             for mdl in fallbacks:
                 if not mdl: continue
                 try:
-                    response = hf_client.chat_completion(
+                    out = AIService._chat_completion_with_fallback(
                         messages=[
                             {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + 
                              (f"The user is {user_preferred_name}, studying {course} (Semester {semester})" + (f", specifically {subject}." if subject else ".") if user_preferred_name and course and semester else "") +
@@ -493,15 +534,11 @@ class AIService:
                             {"role": "user", "content": text}
                         ],
                         model=mdl,
+                        token=token,
                         max_tokens=64,
-                        temperature=0.7
+                        temperature=0.7,
+                        timeout=8
                     )
-                    
-                    if hasattr(response, 'choices'):
-                        out = response.choices[0].message.content
-                    else:
-                        out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
-                    
                     if out and len(out.strip()) > 0:
                         return out.strip()
                 except Exception as inner_ex:
@@ -625,18 +662,14 @@ class AIService:
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": f"Syllabus Text:\n{processed_text}\n\nStrict JSON Knowledge Map:"}
                     ]
-                    response = client.chat_completion(
+                    out = AIService._chat_completion_with_fallback(
                         messages=messages,
                         model=mdl,
+                        token=token,
                         max_tokens=2500,
-                        temperature=0.1
+                        temperature=0.1,
+                        timeout=90
                     )
-                    
-                    if hasattr(response, 'choices'):
-                        out = response.choices[0].message.content
-                    else:
-                        out = response.get('choices', [{}])[0].get('message', {}).get('content', '')
-                    
                     if out and len(out.strip()) > 5:
                         break # Success
                 except Exception as e:
