@@ -610,6 +610,119 @@ class AIService:
             return " [Image: Caption generation failed] "
 
     @staticmethod
+    def fallback_parse_syllabus(text: str) -> str:
+        """
+        Locally parse syllabus text using regex to extract units and topics
+        when Hugging Face APIs are unavailable or fail.
+        """
+        if not text:
+            return '{"units": []}'
+            
+        import re
+        import json
+        
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        
+        # Pass 1: Look for Unit / Module / Chapter / Section headings
+        unit_pattern = re.compile(
+            r'^\s*(Unit|Module|Chapter|Section|Part|Paper)\s*(?:No\.?\s*|[-–—:]\s*)?([0-9]+|[ivxlcdm]+|[A-Z])\b(?:\s*[-–—:]\s*|\s+)?(.*)$',
+            re.IGNORECASE
+        )
+        
+        bullet_pattern = re.compile(
+            r'^\s*[-*+•]?\s*(?:\d+\.|\b[a-zA-Z]\.|\b[ivxlcdm]+\.|\b\d+\b|\(\d+\)|\([a-zA-Z]\))?\s*(.*)$',
+            re.IGNORECASE
+        )
+        
+        def split_topic_line(text_line):
+            if ';' in text_line:
+                return [p.strip() for p in text_line.split(';') if p.strip()]
+            if ',' in text_line:
+                raw_parts = text_line.split(',')
+                cleaned_parts = []
+                for p in raw_parts:
+                    p_clean = p.strip()
+                    if p_clean.lower().startswith('and '):
+                        p_clean = p_clean[4:].strip()
+                    elif p_clean.lower().startswith('or '):
+                        p_clean = p_clean[3:].strip()
+                    if p_clean:
+                        cleaned_parts.append(p_clean)
+                if cleaned_parts and all(len(p) < 60 for p in cleaned_parts):
+                    return cleaned_parts
+            return [text_line]
+            
+        units = []
+        current_unit = None
+        
+        for line in lines:
+            match = unit_pattern.match(line)
+            if match:
+                unit_word = match.group(1).strip()
+                unit_num = match.group(2).strip()
+                unit_title = match.group(3).strip()
+                
+                full_title = f"{unit_word} {unit_num}"
+                if unit_title:
+                    full_title += f": {unit_title}"
+                    
+                current_unit = {
+                    "title": full_title,
+                    "topics": []
+                }
+                units.append(current_unit)
+            elif current_unit is not None:
+                topic_match = bullet_pattern.match(line)
+                if topic_match:
+                    raw_topic = topic_match.group(1).strip()
+                    if len(raw_topic) >= 3 and not raw_topic.isdigit():
+                        for topic in split_topic_line(raw_topic):
+                            if topic and len(topic) >= 3 and topic not in current_unit["topics"]:
+                                current_unit["topics"].append(topic)
+                                
+        # Pass 2: If no units found, look for numerical/alphabetical section headers (e.g. "1. Introduction")
+        if not units:
+            section_pattern = re.compile(
+                r'^\s*(?:[0-9]+|[IVXLCDM]+|[A-Za-z])\s*[-–—.:]\s*(.+)$'
+            )
+            current_unit = None
+            for line in lines:
+                match = section_pattern.match(line)
+                if match:
+                    current_unit = {
+                        "title": line,
+                        "topics": []
+                    }
+                    units.append(current_unit)
+                elif current_unit is not None:
+                    topic_match = bullet_pattern.match(line)
+                    if topic_match:
+                        raw_topic = topic_match.group(1).strip()
+                        if len(raw_topic) >= 3 and not raw_topic.isdigit():
+                            for topic in split_topic_line(raw_topic):
+                                if topic and len(topic) >= 3 and topic not in current_unit["topics"]:
+                                    current_unit["topics"].append(topic)
+                                    
+        # Pass 3: If still no units found, group everything under one default unit
+        if not units:
+            default_unit = {
+                "title": "Syllabus Core Topics",
+                "topics": []
+            }
+            for line in lines:
+                topic_match = bullet_pattern.match(line)
+                if topic_match:
+                    raw_topic = topic_match.group(1).strip()
+                    if len(raw_topic) >= 3 and not raw_topic.isdigit():
+                        for topic in split_topic_line(raw_topic):
+                            if topic and len(topic) >= 3 and topic not in default_unit["topics"]:
+                                default_unit["topics"].append(topic)
+            if default_unit["topics"]:
+                units.append(default_unit)
+                
+        return json.dumps({"units": units})
+
+    @staticmethod
     def analyze_syllabus_text(text):
         """Extract a structured JSON of Units and Topics from syllabus text using an LLM."""
         if not text or len(text.strip()) < 50:
@@ -680,9 +793,8 @@ class AIService:
                     continue
 
             if not out:
-                if credits_depleted:
-                    return '{"units": [], "error": "Your Hugging Face API monthly included credits are depleted. Please purchase pre-paid credits, upgrade your Hugging Face account to Pro, or configure another API token."}'
-                return '{"units": []}'
+                logging.warning("All LLM models failed to analyze syllabus. Invoking local fallback parser.")
+                return AIService.fallback_parse_syllabus(processed_text)
 
             out = out.strip()
             
@@ -699,13 +811,14 @@ class AIService:
             # Final validation
             try:
                 json_data = json.loads(out)
-                if 'units' not in json_data:
-                    json_data = {"units": []}
+                if 'units' not in json_data or not json_data['units']:
+                    logging.warning("LLM returned JSON with no units. Invoking local fallback parser.")
+                    return AIService.fallback_parse_syllabus(processed_text)
                 return json.dumps(json_data)
             except Exception as e:
-                logging.error(f"Syllabus analysis returned invalid JSON content: {e}")
-                return '{"units": []}'
+                logging.error(f"Syllabus analysis returned invalid JSON content: {e}. Invoking local fallback parser.")
+                return AIService.fallback_parse_syllabus(processed_text)
                 
         except Exception as e:
-            logging.error(f"Syllabus analysis critical failure: {e}")
-            return '{"units": []}'
+            logging.error(f"Syllabus analysis critical failure: {e}. Invoking local fallback parser.")
+            return AIService.fallback_parse_syllabus(text)
