@@ -51,7 +51,7 @@ class Config:
     # AI Services
     HUGGINGFACE_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
     HF_EMBEDDING_MODEL = os.getenv('HF_EMBEDDING_MODEL', 'sentence-transformers/all-MiniLM-L6-v2')
-    HF_LLM_MODEL = os.getenv('HF_LLM_MODEL', 'meta-llama/Llama-3.2-3B-Instruct')
+    HF_LLM_MODEL = os.getenv('HF_LLM_MODEL', 'google/gemma-2-9b-it')
     HF_SMALLTALK_MODEL = os.getenv('HF_SMALLTALK_MODEL', 'meta-llama/Llama-3.2-1B-Instruct')
     HF_SYLLABUS_MODEL = os.getenv('HF_SYLLABUS_MODEL', 'mistralai/Mistral-7B-Instruct-v0.3')
     HF_IMAGE_CAPTION_MODEL = os.getenv('HF_IMAGE_CAPTION_MODEL', 'Salesforce/blip-image-captioning-large')
