@@ -264,6 +264,7 @@ class AIService:
         })
 
         # 1. Try Hugging Face (Primary)
+        credits_depleted = False
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
             hf_client = InferenceClient(token=token, timeout=45)
@@ -293,11 +294,20 @@ class AIService:
                         
                     if out and len(out.strip()) > 0:
                         return out.strip()
-                except Exception:
+                except Exception as inner_ex:
+                    err_str = str(inner_ex).lower()
+                    if "402" in err_str or "payment required" in err_str or "credits" in err_str:
+                        credits_depleted = True
+                    logging.warning(f"Hugging Face generation fallback {mdl} failed: {inner_ex}")
                     continue
         except Exception as e:
+            err_str = str(e).lower()
+            if "402" in err_str or "payment required" in err_str or "credits" in err_str:
+                credits_depleted = True
             logging.error(f"Hugging Face generation failed: {e}")
 
+        if credits_depleted:
+            return "Your Hugging Face API monthly included credits are depleted. Please purchase pre-paid credits, upgrade your Hugging Face account to Pro, or configure another API token in your settings."
         return "The AI service is currently experiencing high load or is temporarily unavailable. Please try again in a moment."
 
     @staticmethod
@@ -358,6 +368,7 @@ class AIService:
                 if m not in fallbacks:
                     fallbacks.append(m)
             
+            credits_depleted = False
             for mdl in fallbacks:
                 if not mdl:
                     continue
@@ -378,6 +389,9 @@ class AIService:
                     if out and len(out.strip()) > 0:
                         return out.strip()
                 except Exception as e:
+                    err_str = str(e).lower()
+                    if "402" in err_str or "payment required" in err_str or "credits" in err_str:
+                        credits_depleted = True
                     logging.warning(f"Website chat completion failed with {mdl}: {e}")
                     # Fallback to legacy text generation
                     try:
@@ -396,8 +410,13 @@ class AIService:
                         if out and len(out.strip()) > 0:
                             return out.strip()
                     except Exception as e2:
+                        err_str2 = str(e2).lower()
+                        if "402" in err_str2 or "payment required" in err_str2 or "credits" in err_str2:
+                            credits_depleted = True
                         continue
                         
+            if credits_depleted:
+                return "Your Hugging Face API monthly included credits are depleted. Please purchase pre-paid credits, upgrade your Hugging Face account to Pro, or configure another API token in your settings."
             logging.error("All Hugging Face fallback models failed for website content.")
             return "This information is not found on the page."
         except Exception as e:
@@ -448,6 +467,7 @@ class AIService:
 
     @staticmethod
     def generate_smalltalk(text: str, user_preferred_name=None, course=None, semester=None, subject=None):
+        credits_depleted = False
         # Try Hugging Face first (Primary with robust fallbacks)
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
@@ -485,10 +505,19 @@ class AIService:
                     if out and len(out.strip()) > 0:
                         return out.strip()
                 except Exception as inner_ex:
+                    err_str = str(inner_ex).lower()
+                    if "402" in err_str or "payment required" in err_str or "credits" in err_str:
+                        credits_depleted = True
                     logging.warning(f"Hugging Face smalltalk fallback {mdl} failed: {inner_ex}")
                     continue
         except Exception as e:
+            err_str = str(e).lower()
+            if "402" in err_str or "payment required" in err_str or "credits" in err_str:
+                credits_depleted = True
             logging.warning(f"Hugging Face smalltalk failed: {e}")
+        
+        if credits_depleted:
+            return "Your Hugging Face API monthly included credits are depleted. Please purchase pre-paid credits, upgrade your Hugging Face account to Pro, or configure another API token in your settings."
         
         # Final hardcoded fallback
         name_part = f" {user_preferred_name}" if user_preferred_name else ""
@@ -587,6 +616,7 @@ class AIService:
                 "meta-llama/Llama-3.2-1B-Instruct"
             ]
 
+            credits_depleted = False
             out = ""
             for mdl in fallbacks:
                 if not mdl: continue
@@ -610,10 +640,15 @@ class AIService:
                     if out and len(out.strip()) > 5:
                         break # Success
                 except Exception as e:
+                    err_str = str(e).lower()
+                    if "402" in err_str or "payment required" in err_str or "credits" in err_str:
+                        credits_depleted = True
                     logging.warning(f"Syllabus extraction attempt with {mdl} failed: {e}")
                     continue
 
             if not out:
+                if credits_depleted:
+                    return '{"units": [], "error": "Your Hugging Face API monthly included credits are depleted. Please purchase pre-paid credits, upgrade your Hugging Face account to Pro, or configure another API token."}'
                 return '{"units": []}'
 
             out = out.strip()
