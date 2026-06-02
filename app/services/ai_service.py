@@ -238,6 +238,48 @@ class AIService:
         # Clean/normalize question terms deterministically for syllabus queries
         if mode == 'syllabus' and syllabus_context:
             question = AIService.normalize_syllabus_question(question, syllabus_context)
+            
+            try:
+                import json
+                import re
+                syllabus_data = json.loads(syllabus_context)
+                units = syllabus_data.get("units", [])
+                
+                # Check for full syllabus request
+                q_clean = question.lower().strip().strip('?').strip('.')
+                if q_clean in [
+                    "give me the syllabus", "what is the syllabus", "show syllabus", "syllabus", 
+                    "view syllabus", "what are the units", "get syllabus", "provide syllabus", 
+                    "explain syllabus", "tell me the syllabus", "show the units"
+                ]:
+                    out_parts = []
+                    out_parts.append("Here is the syllabus structure for this course:\n")
+                    for unit in units:
+                        title = unit.get("title", "Unknown Unit")
+                        topics = unit.get("topics", [])
+                        out_parts.append(f"### {title}")
+                        if topics:
+                            topics_list_str = "\n".join([f"* {t}" for t in topics])
+                            out_parts.append(topics_list_str)
+                        else:
+                            out_parts.append("*No topics listed.*")
+                        out_parts.append("")
+                    return "\n".join(out_parts)
+                
+                # Check for unit-specific request (e.g. from normalize_syllabus_question)
+                match = re.search(r"^Provide the topics for '(.*)' as listed in the syllabus grounding\.$", question)
+                if match:
+                    target_title = match.group(1).strip()
+                    for unit in units:
+                        if unit.get("title", "").strip().lower() == target_title.lower():
+                            topics = unit.get("topics", [])
+                            if topics:
+                                topics_list_str = "\n".join([f"* {t}" for t in topics])
+                                return f"Here are the topics listed under **{unit.get('title')}**:\n\n{topics_list_str}"
+                            else:
+                                return f"There are no specific topics listed under **{unit.get('title')}**."
+            except Exception as e:
+                logging.warning(f"Deterministic local syllabus parsing failed: {e}")
 
         # 1. Base Identity
         base_identity = "You are a sophisticated AI-powered Intelligence Assistant. Your name is Unibot."
