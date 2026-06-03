@@ -210,8 +210,66 @@ def chat():
         # among dozens of other semantically similar pages (e.g. "former vice chancellors").
         results = vector_store.search(query_emb, k=30, filter=search_filter if search_filter else None)
         
-        # 4. Generation
-        context = "\n\n".join([r['text'] for r in results])
+        # 3.5 General Mode Webpage Chunk Clustered Expansion
+        if mode == 'general' and results:
+            def extract_url_from_text(t):
+                if not t: return None
+                import re
+                m = re.match(r"^\[Source: (.*?)\]", t)
+                return m.group(1) if m else None
+                
+            top_urls = []
+            for r in results:
+                u = r.get('url') or extract_url_from_text(r.get('text'))
+                if u and u not in top_urls:
+                    top_urls.append(u)
+            
+            # Target top 3 unique URLs for full page retrieval
+            target_urls = top_urls[:3]
+            
+            if target_urls:
+                from sqlalchemy import or_
+                from app.models import DocumentChunk
+                
+                conditions = [DocumentChunk.chunk_text.like(f"[Source: {u}]%") for u in target_urls]
+                full_page_chunks = DocumentChunk.query.filter(or_(*conditions)).order_by(DocumentChunk.chunk_index).all()
+                
+                if full_page_chunks:
+                    # Group chunks by their matched target URL
+                    pages_content = {}
+                    for c in full_page_chunks:
+                        matched_url = None
+                        for u in target_urls:
+                            if c.chunk_text.startswith(f"[Source: {u}]"):
+                                matched_url = u
+                                break
+                        if not matched_url:
+                            matched_url = extract_url_from_text(c.chunk_text)
+                            
+                        if matched_url and matched_url in target_urls:
+                            if matched_url not in pages_content:
+                                pages_content[matched_url] = []
+                            pages_content[matched_url].append(c.chunk_text)
+                    
+                    # Reconstruct the context prioritizing full pages in order of relevance
+                    context_parts = []
+                    for u in target_urls:
+                        if u in pages_content:
+                            context_parts.append("\n".join(pages_content[u]))
+                    
+                    # Add any remaining results that were not part of the expanded target URLs
+                    for r in results:
+                        u = r.get('url') or extract_url_from_text(r.get('text'))
+                        if not u or u not in target_urls:
+                            context_parts.append(r['text'])
+                            
+                    context = "\n\n".join(context_parts)
+                else:
+                    context = "\n\n".join([r['text'] for r in results])
+            else:
+                context = "\n\n".join([r['text'] for r in results])
+        else:
+            context = "\n\n".join([r['text'] for r in results])
         if live_context:
             context = f"--- LIVE WEB DATA ---\n{live_context}\n\n--- STATIC KNOWLEDGE ---\n{context}"
 
