@@ -25,6 +25,39 @@ _JINA_ENABLED = True
 
 class WebScraper:
     @staticmethod
+    def is_404_or_error_page(text):
+        if not text:
+            return True
+            
+        text_lower = text.lower()
+        
+        # 1. Jina Reader proxy error indicators
+        if "target url returned error" in text_lower:
+            return True
+            
+        # 2. Common 404 text patterns (very common on university/government websites)
+        error_indicators = [
+            "404 - error: 404",
+            "404 component not found",
+            "404 component not found.",
+            "404 page not found",
+            "404 not found",
+            "page not found",
+            "component not found",
+            "error 404: not found",
+            "the requested page could not be found",
+            "requested page not found"
+        ]
+        
+        # Check if the text matches any of these, but only if it's a short page (usually <2000 chars)
+        if len(text) < 2000:
+            for ind in error_indicators:
+                if ind in text_lower:
+                    return True
+                    
+        return False
+
+    @staticmethod
     def normalize_url(url):
         """Ensure URL has scheme and is a string we can parse."""
         if not url or not isinstance(url, str):
@@ -408,7 +441,7 @@ class WebScraper:
                 time.sleep(0.5)
                     
                 for u, ok, soup, text in results:
-                    if ok and text and len(text) >= 15:
+                    if ok and text and len(text) >= 15 and not WebScraper.is_404_or_error_page(text):
                         pages_list.append((u, text))
                         total_chars += len(text)
                         if total_chars > max_total_chars:
@@ -423,7 +456,7 @@ class WebScraper:
                 # Fallback to serial if thread pool fails
                 for u in batch:
                     ok, soup, text = WebScraper.fetch_one_page_requests(u)
-                    if ok and text and len(text) >= 15:
+                    if ok and text and len(text) >= 15 and not WebScraper.is_404_or_error_page(text):
                         pages_list.append((u, text))
                         total_chars += len(text)
                         if total_chars > max_total_chars:
@@ -547,7 +580,7 @@ class WebScraper:
                  
             # 3. Fast Fetch (Requests)
             pages_list = []
-            if ok and text and len(text) >= 100:
+            if ok and text and len(text) >= 100 and not WebScraper.is_404_or_error_page(text):
                 pages_list.append((url, text))
                 
             failed_or_empty_candidates = []
@@ -563,7 +596,7 @@ class WebScraper:
                     
                 for ou, ok1, text1 in results:
                     # If text is substantial, keep it
-                    if ok1 and text1 and len(text1) >= 200:
+                    if ok1 and text1 and len(text1) >= 200 and not WebScraper.is_404_or_error_page(text1):
                         pages_list.append((ou, text1))
                     elif ok1:
                         # Success but little text -> likely JS rendered
@@ -576,7 +609,7 @@ class WebScraper:
                 # Serial fallback
                 for ou in top:
                     ok1, soup1, text1 = WebScraper.fetch_one_page_requests(ou)
-                    if ok1 and text1 and len(text1) >= 200:
+                    if ok1 and text1 and len(text1) >= 200 and not WebScraper.is_404_or_error_page(text1):
                         pages_list.append((ou, text1))
                     else:
                         failed_or_empty_candidates.append(ou)
@@ -590,7 +623,7 @@ class WebScraper:
                 if suspicious_high_value:
                     for u in suspicious_high_value:
                         ok_j, _, text_j = WebScraper.fetch_one_page_jina(u)
-                        if ok_j and text_j and len(text_j) > 100:
+                        if ok_j and text_j and len(text_j) > 100 and not WebScraper.is_404_or_error_page(text_j):
                             pages_list.append((u, text_j))
                             if fast_mode and len(pages_list) >= max_pages:
                                 break
