@@ -76,8 +76,10 @@ class WebScraper:
         except Exception:
             netloc = ''
         if netloc.endswith('uoc.ac.in'):
-            return {'max_pages': 120, 'max_chars': 1_200_000, 'time_cap': 120}
-        return {'max_pages': GENERAL_MODE_MAX_PAGES, 'max_chars': GENERAL_MODE_MAX_TOTAL_CHARS, 'time_cap': GENERAL_MODE_TIME_CAP}
+            # Scrape up to 10000 pages for Calicut University, cap time at 3 hours
+            return {'max_pages': 10000, 'max_chars': 100_000_000, 'time_cap': 10800}
+        # For general domains, default to a high safe limit
+        return {'max_pages': 5000, 'max_chars': 50_000_000, 'time_cap': 5400}
 
     @staticmethod
     def _domain_root(netloc):
@@ -192,8 +194,8 @@ class WebScraper:
                 except Exception:
                     continue
             
-            if len(urls) > 100:
-                urls = set(list(urls)[:100])
+            if len(urls) > 2000:
+                urls = set(list(urls)[:2000])
             return urls
         except Exception:
             return set()
@@ -489,9 +491,22 @@ class WebScraper:
                 
             seen = {url}
             seeds = list(WebScraper.fetch_sitemap_urls(url))
+            
+            # Inject key pages for uoc.ac.in to ensure they are crawled immediately
+            if 'uoc.ac.in' in url.lower():
+                extra_seeds = [
+                    'https://uoc.ac.in/index.php/the-university/chancellor',
+                    'https://uoc.ac.in/index.php/the-university/pro-chancellor',
+                    'https://uoc.ac.in/index.php/the-university/vice-chancellor'
+                ]
+                for seed in extra_seeds:
+                    normalized_seed = WebScraper.normalize_crawl_url(seed)
+                    if normalized_seed not in seen and normalized_seed not in seeds:
+                        seeds.append(normalized_seed)
+                        
             if seeds:
-                if len(seeds) > 30:
-                    seeds = seeds[:30]
+                if len(seeds) > 1000:
+                    seeds = seeds[:1000]
                 queue = deque([url] + seeds)
             else:
                 queue = deque([url])
