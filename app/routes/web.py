@@ -19,7 +19,7 @@ def process_website_task(doc_id, url, filename):
     
     try:
         # 1. Scrape
-        ok, pages = WebScraper.crawl_website(url, max_pages_override=150, time_cap_override=600)
+        ok, pages = WebScraper.crawl_website(url, max_pages_override=10000, time_cap_override=10800)
         
         doc = Document.query.get(doc_id)
         if not ok or not pages:
@@ -46,21 +46,20 @@ def process_website_task(doc_id, url, filename):
                     chunk_index=total_chunks
                 )
                 db.session.add(chunk_obj)
-                chunks_to_add.append(chunk_obj)
+                chunks_to_add.append((chunk_obj, page_url))
                 total_chunks += 1
             
         # Commit to get chunk IDs
         db.session.commit()
         
         # 3. Vectorize
-        for c in chunks_to_add:
+        for c, page_url in chunks_to_add:
             all_chunk_texts.append(c.chunk_text)
-            # Find matching page_url for metadata
-            # (In a real scenario, we might want better mapping, but this is consistent with original)
             all_chunk_metas.append({
                 'text': c.chunk_text,
                 'doc_id': doc_id,
                 'chunk_id': c.id,
+                'url': page_url,
                 'filename': filename,
                 'doc_type': doc.doc_type if doc else 'general',
                 'course': doc.course.strip().upper() if (doc and doc.course) else None,
