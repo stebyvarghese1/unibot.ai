@@ -319,7 +319,7 @@ def list_users():
 @admin_bp.route('/api/admin/chunks', methods=['GET'])
 @admin_required
 def list_chunks():
-    doc_id = request.args.get('document_id')
+    doc_id = request.args.get('document_id', type=int)
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
     
