@@ -49,7 +49,7 @@ class WebSourceRefresher:
 
                 try:
                     # 3. Scrape new content
-                    ok, pages = WebScraper.crawl_website(url, max_pages_override=30, time_cap_override=60)
+                    ok, pages = WebScraper.crawl_website(url, max_pages_override=10000, time_cap_override=10800)
                     if not ok or not pages:
                         logging.warning(f"⚠️ Failed to re-scrape {url}")
                         # Update date anyway to avoid infinite retries on failure
