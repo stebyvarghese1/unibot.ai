@@ -339,12 +339,11 @@ class WebScraper:
                 netloc = (parsed.netloc or '').lower()
                 cand_root = WebScraper._domain_root(netloc)
                 
-                # Strict Same-Subdomain Enforcement (ignore 'www.' prefix)
+                # Same-Subdomain Enforcement (allow sister subdomains sharing the same registered root domain)
                 cand_sub = netloc.replace('www.', '')
                 base_sub = base_netloc.replace('www.', '')
                 if cand_sub != base_sub:
-                    # Allow subdomains of uoc.ac.in if base site belongs to uoc.ac.in
-                    if base_root == 'uoc.ac.in' and cand_root == 'uoc.ac.in':
+                    if base_root and cand_root and base_root == cand_root:
                         pass
                     else:
                         continue
