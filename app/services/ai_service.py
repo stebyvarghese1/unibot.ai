@@ -237,6 +237,42 @@ class AIService:
         return question
 
     @staticmethod
+    def clean_response(text: str) -> str:
+        if not text:
+            return ""
+            
+        import re
+        
+        # 1. Strip leading labels/prefixes (e.g. "Answer:", "Response:", "Assistant:", etc.)
+        prefix_pattern = r'^\s*(?:answer|response|assistant|ai|unibot|output|unibot\s*answer)\s*:\s*'
+        text = re.sub(prefix_pattern, '', text, flags=re.IGNORECASE)
+        
+        # 2. Strip common introductory RAG phrases
+        prohibited_phrases = [
+            r'^\s*based\s+on\s+the\s+(?:provided\s+)?(?:context|text|information|syllabus\s+grounding|document|webpage|page)\s*,?\s*',
+            r'^\s*according\s+to\s+the\s+(?:provided\s+)?(?:context|text|information|syllabus\s+grounding|document|webpage|page)\s*,?\s*',
+            r'^\s*in\s+the\s+provided\s+(?:context|text|document|webpage)\s*,?\s*',
+            r'^\s*based\s+strictly\s+on\s+the\s+(?:provided\s+)?(?:context|text|information|syllabus\s+grounding)\s*,?\s*',
+            r'^\s*from\s+the\s+provided\s+(?:context|text|document|webpage)\s*,?\s*',
+        ]
+        
+        # Apply the regex replacements iteratively until no more matches at the start of the text
+        changed = True
+        while changed:
+            original = text
+            for pattern in prohibited_phrases:
+                text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+            text = text.strip()
+            if text == original:
+                changed = False
+                
+        # 3. Capitalize first letter if it got lowercased by the replacement
+        if text and text[0].islower():
+            text = text[0].upper() + text[1:]
+            
+        return text
+
+    @staticmethod
     def generate_answer(question, context, mode='syllabus', history=None, syllabus_context=None, custom_sys_prompt=None, user_preferred_name=None, course=None, semester=None, subject=None):
         # Clean/normalize question terms deterministically for syllabus queries
         if mode == 'syllabus' and syllabus_context:
@@ -297,12 +333,12 @@ class AIService:
                 f"You are currently in **{mode.upper()} MODE**. Your role is: **{role_desc}**.\n\n"
                 "Your personality and identity are primarily defined by your helpful and academic nature.\n\n"
                 "CRITICAL RULES:\n"
-                "1. IDENTITY AWARENESS: You are Unibot. If asked about your creators or identity, be professional. You were created to assist students.\n"
+                "1. IDENTITY AWARENESS: You are Unibot. You were developed and are maintained by Steby Varghese (King's Guard). If asked about your creator, developer, or who made you, always state clearly that you were created and are maintained by Steby Varghese (King's Guard).\n"
                 f"2. USER PERSONALIZATION: The user's name is '{user_preferred_name or 'the student'}'. " +
-                (f"They are studying {course}, in Semester {semester}" + (f" (Subject: {subject})." if subject else ".") if course and semester else "") +
+                (f"They are studying {course}, in Semester {semester}" + (f" (Subject: {subject})." if subject else ".") if (mode == 'syllabus' and course and semester) else "") +
                 " Use this to be friendly, but don't overdo it.\n"
                 "3. ADAPTIVE ROLE: In STUDIES mode, rely entirely on syllabus and academic documents. In GENERAL mode, rely entirely on university general documents. Do not answer outside of this scope.\n"
-                "4. NATURAL SPEECH: Answer directly. NEVER mention 'provided context' or 'the text'. Avoid phrases like 'Based on the information provided...'.\n"
+                "4. NATURAL SPEECH: Answer directly. NEVER mention 'provided context', 'the text', or 'the database'. Avoid phrases like 'Based on the information provided...'. Speak as if you simply know the facts.\n"
                 "5. STRICT GROUNDING: You are a strict RAG chatbot. You MUST answer strictly using ONLY the provided context and the SYLLABUS GROUNDING information (if provided). If both are empty or do not contain the answer, you MUST politely state that you do not have the information in your knowledge base. NEVER use your general pre-trained knowledge to answer questions.\n"
                 "6. SYLLABUS PRIORITY: For questions about curriculum structure, Units, Modules, or specific topics, you MUST prioritize the **SYLLABUS GROUNDING** section. Provide the topics exactly as listed in the official curriculum.\n"
                 "7. GROUNDING SAFEGUARD: If you are in STUDIES (SYLLABUS) mode and the SYLLABUS GROUNDING section is missing or empty, and the user asks for topics/curriculum, you MUST politely explain that you don't have their specific subject's syllabus yet. Ask them to ensure their **Course, Semester, and Subject** are correctly set in their profile or the sidebar.\n"
@@ -338,16 +374,14 @@ class AIService:
                 f"Context Information:\n<context>\n{context_str}\n</context>\n\n"
                 "Based STRICTLY on the syllabus grounding and context information provided above, answer the following question. "
                 "If neither the syllabus grounding nor the context contains the answer, you MUST politely explain that this information is currently missing from Unibot's database, and suggest that the user verify their Course/Semester/Subject settings or ask an administrator to upload/crawl the relevant source.\n\n"
-                f"Question: {question}\n\n"
-                "Answer:"
+                f"Question: {question}"
             )
         else:
             user_content = (
                 f"Context Information:\n<context>\n{context_str}\n</context>\n\n"
                 "Based STRICTLY on the context above, answer the following question. "
                 "If the context does not contain the answer, you MUST politely explain that this information is currently missing from Unibot's database, and suggest that an administrator crawls the relevant URL or uploads the document under settings.\n\n"
-                f"Question: {question}\n\n"
-                "Answer:"
+                f"Question: {question}"
             )
             
         messages.append({
@@ -381,7 +415,7 @@ class AIService:
                         timeout=45
                     )
                     if out and len(out.strip()) > 0:
-                        return out.strip()
+                        return AIService.clean_response(out.strip())
                 except Exception as inner_ex:
                     err_str = str(inner_ex).lower()
                     if "402" in err_str or "payment required" in err_str or "credits" in err_str:
@@ -414,11 +448,11 @@ class AIService:
                     "role": "system",
                     "content": (
                         "You are Unibot, a university assistant analyzing webpage content. "
+                        "You were developed and are maintained by Steby Varghese (King's Guard). If asked about your creator, developer, or who made you, always state clearly that you were created and are maintained by Steby Varghese (King's Guard).\n\n"
                         + (f"The user you are helping is named '{user_preferred_name}'. " if user_preferred_name else "The user has not provided a name yet. ")
-                        + (f"They are studying {course} (Semester {semester})" + (f", specifically {subject}." if subject else ".") if course and semester else "")
                         + "\n\nUse ONLY the provided webpage text.\n\n"
                         "CORE RULES:\n"
-                        "1. NATURAL RESPONSES: Speak naturally and directly. NEVER mention 'the provided webpage', 'the text', or 'based on the content'. Answer as if you simply know the facts.\n"
+                        "1. NATURAL RESPONSES: Speak naturally and directly. NEVER mention 'the provided webpage', 'the text', 'the database', or 'based on the content'. Answer as if you simply know the facts.\n"
                         "2. ADAPTIVE STYLE: Follow the user's lead. If they request a specific format (e.g., 'give me a summary' or 'list the fees'), prioritize that request.\n"
                         "3. IDENTITY: If the user asks 'who am I', answer with their name using the information provided above.\n"
                         "4. DEFAULT FORMAT: Briefly answer in 2-3 sentences, then provide a '### Details' section with bullet points for specific facts.\n"
@@ -435,7 +469,7 @@ class AIService:
             
             # 3. Add current question
             context_str = context if context.strip() else "[NO WEBPAGE CONTENT FOUND. YOU MUST STATE THE INFORMATION IS NOT ON THE PAGE.]"
-            messages.append({"role": "user", "content": f"Webpage (Source: {source_url}):\n{context_str}\n\nUser Question/Instruction: {question}\n\nAnswer:"})
+            messages.append({"role": "user", "content": f"Webpage (Source: {source_url}):\n{context_str}\n\nUser Question/Instruction: {question}"})
 
             try:
                 llm_model = current_app.config.get("HF_LLM_MODEL") if current_app else None
@@ -470,7 +504,7 @@ class AIService:
                         timeout=45
                     )
                     if out and len(out.strip()) > 0:
-                        return out.strip()
+                        return AIService.clean_response(out.strip())
                 except Exception as e:
                     err_str = str(e).lower()
                     if "402" in err_str or "payment required" in err_str or "credits" in err_str:
@@ -492,7 +526,7 @@ class AIService:
                             temperature=0.2,
                         )
                         if out and len(out.strip()) > 0:
-                            return out.strip()
+                            return AIService.clean_response(out.strip())
                     except Exception as e2:
                         err_str2 = str(e2).lower()
                         if "402" in err_str2 or "payment required" in err_str2 or "credits" in err_str2:
@@ -550,7 +584,7 @@ class AIService:
         return False
 
     @staticmethod
-    def generate_smalltalk(text: str, user_preferred_name=None, course=None, semester=None, subject=None):
+    def generate_smalltalk(text: str, mode='syllabus', user_preferred_name=None, course=None, semester=None, subject=None):
         credits_depleted = False
         # Try Hugging Face first (Primary with robust fallbacks)
         try:
@@ -565,14 +599,22 @@ class AIService:
                 "meta-llama/Llama-3.2-1B-Instruct"
             ]
             
+            # If in general mode, we do NOT include coursework details
+            has_coursework = (mode == 'syllabus' or mode == 'studies') and course and semester
+            coursework_str = f" studying {course} (Semester {semester})" + (f", specifically {subject}." if subject else ".") if has_coursework else ""
+            
+            system_content = (
+                f"You are Unibot, a friendly university assistant developed and maintained by Steby Varghese (King's Guard). Respond briefly to the user's greeting. "
+                f"The user is {user_preferred_name or 'a student'}{coursework_str}. "
+                f"IMPORTANT: You MUST start your response by greeting the user by their name '{user_preferred_name}' (e.g. 'Hello {user_preferred_name}!')" if user_preferred_name else ""
+            )
+
             for mdl in fallbacks:
                 if not mdl: continue
                 try:
                     out = AIService._chat_completion_with_fallback(
                         messages=[
-                            {"role": "system", "content": f"You are Unibot, a friendly university assistant. Respond briefly to the user's greeting. " + 
-                             (f"The user is {user_preferred_name}, studying {course} (Semester {semester})" + (f", specifically {subject}." if subject else ".") if user_preferred_name and course and semester else "") +
-                             (f" IMPORTANT: You MUST start your response by greeting the user by their name '{user_preferred_name}' (e.g. 'Hello {user_preferred_name}!')" if user_preferred_name else "")},
+                            {"role": "system", "content": system_content},
                             {"role": "user", "content": text}
                         ],
                         model=mdl,
@@ -582,7 +624,7 @@ class AIService:
                         timeout=8
                     )
                     if out and len(out.strip()) > 0:
-                        return out.strip()
+                        return AIService.clean_response(out.strip())
                 except Exception as inner_ex:
                     err_str = str(inner_ex).lower()
                     if "402" in err_str or "payment required" in err_str or "credits" in err_str:
@@ -600,9 +642,12 @@ class AIService:
         
         # Final hardcoded fallback
         name_part = f" {user_preferred_name}" if user_preferred_name else ""
+        has_coursework = (mode == 'syllabus' or mode == 'studies')
+        course_part = " about your courses or subjects" if has_coursework else ""
+        doc_part = "documents or subjects" if has_coursework else "questions or system navigation"
         fallbacks_dict = {
             "nice": f"Glad you think so{name_part}!",
-            "okay": f"I'm ready whenever you are{name_part}! Would you like to know anything more about your courses or subjects?",
+            "okay": f"I'm ready whenever you are{name_part}! Would you like to know anything more{course_part}?",
             "ok": f"Got it{name_part}! How can I help you further?",
             "thanks": f"You're very welcome{name_part}!",
             "thank you": f"You're very welcome{name_part}!",
@@ -610,7 +655,8 @@ class AIService:
             "hello": f"Hi{name_part}! I'm here to help with your studies or any questions about this system."
         }
         t = (text or "").lower().strip().strip('!').strip('.')
-        return fallbacks_dict.get(t, f"I'm here to help{name_part}! Do you have any questions about your documents or subjects?")
+        res = fallbacks_dict.get(t, f"I'm here to help{name_part}! Do you have any questions about your {doc_part}?")
+        return AIService.clean_response(res)
 
     @staticmethod
     def generate_image_caption(image_bytes: bytes):
