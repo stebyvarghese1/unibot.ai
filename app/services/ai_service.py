@@ -92,6 +92,9 @@ class AIService:
             hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
             fallbacks = [
                 hf_model,
+                "Qwen/Qwen2.5-7B-Instruct",
+                "meta-llama/Llama-3.2-3B-Instruct",
+                "mistralai/Mistral-7B-Instruct-v0.3",
                 "Qwen/Qwen3-8B"
             ]
             
@@ -334,7 +337,7 @@ class AIService:
                 f"<syllabus_grounding>\n{enriched_syllabus}\n</syllabus_grounding>\n\n"
                 f"Context Information:\n<context>\n{context_str}\n</context>\n\n"
                 "Based STRICTLY on the syllabus grounding and context information provided above, answer the following question. "
-                "If neither the syllabus grounding nor the context contains the answer, you MUST output exactly 'I do not have the information.'\n\n"
+                "If neither the syllabus grounding nor the context contains the answer, you MUST politely explain that this information is currently missing from Unibot's database, and suggest that the user verify their Course/Semester/Subject settings or ask an administrator to upload/crawl the relevant source.\n\n"
                 f"Question: {question}\n\n"
                 "Answer:"
             )
@@ -342,7 +345,7 @@ class AIService:
             user_content = (
                 f"Context Information:\n<context>\n{context_str}\n</context>\n\n"
                 "Based STRICTLY on the context above, answer the following question. "
-                "If the context does not contain the answer, you MUST output exactly 'I do not have the information.'\n\n"
+                "If the context does not contain the answer, you MUST politely explain that this information is currently missing from Unibot's database, and suggest that an administrator crawls the relevant URL or uploads the document under settings.\n\n"
                 f"Question: {question}\n\n"
                 "Answer:"
             )
@@ -360,6 +363,9 @@ class AIService:
             hf_model = current_app.config.get("HF_LLM_MODEL") if current_app else Config.HF_LLM_MODEL
             hf_fallbacks = [
                 hf_model,
+                "Qwen/Qwen2.5-7B-Instruct",
+                "meta-llama/Llama-3.2-3B-Instruct",
+                "mistralai/Mistral-7B-Instruct-v0.3",
                 "Qwen/Qwen3-8B"
             ]
 
@@ -441,6 +447,9 @@ class AIService:
                 fallbacks.append(primary)
             
             robust_models = [
+                "Qwen/Qwen2.5-7B-Instruct",
+                "meta-llama/Llama-3.2-3B-Instruct",
+                "mistralai/Mistral-7B-Instruct-v0.3",
                 "Qwen/Qwen3-8B"
             ]
             for m in robust_models:
