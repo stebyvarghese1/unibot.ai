@@ -343,7 +343,11 @@ class WebScraper:
                 cand_sub = netloc.replace('www.', '')
                 base_sub = base_netloc.replace('www.', '')
                 if cand_sub != base_sub:
-                    continue
+                    # Allow subdomains of uoc.ac.in if base site belongs to uoc.ac.in
+                    if base_root == 'uoc.ac.in' and cand_root == 'uoc.ac.in':
+                        pass
+                    else:
+                        continue
                 
                 # Blocklist of file extensions that are non-textual or too large (Apply to ALL links)
                 bad_exts = ('.jpg', '.jpeg', '.png', '.gif', '.zip', '.rar', '.exe', '.mp3', '.mp4', '.avi', '.docx', '.xlsx', '.pptx')
