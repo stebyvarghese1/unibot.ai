@@ -25,6 +25,9 @@ def chat():
     question = (data.get('question') or '').strip()
     session_id = data.get('session_id')
     mode = data.get('mode', 'syllabus') # 'syllabus' or 'general'
+    if mode == 'studies':
+        mode = 'syllabus'
+
     
     if not question:
         return jsonify({'error': 'Question is required'}), 400
@@ -64,6 +67,7 @@ def chat():
         if ai_service.is_smalltalk(question):
             answer = ai_service.generate_smalltalk(
                 question, 
+                mode=mode,
                 user_preferred_name=user.preferred_name,
                 course=user.pref_course,
                 semester=user.pref_semester,
