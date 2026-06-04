@@ -18,27 +18,23 @@ def process_website_task(doc_id, url, filename):
     from app.services.document_processor import DocumentProcessor
     
     try:
-        # 1. Scrape
-        ok, pages = WebScraper.crawl_website(url, max_pages_override=10000, time_cap_override=10800)
-        
-        doc = Document.query.get(doc_id)
-        if not ok or not pages:
-            if doc:
-                doc.status = 'error'
-                db.session.commit()
-            return
-
-        # 2. Process & Chunk
         total_chunks = 0
         chunks_to_add = []
-        all_chunk_texts = []
-        all_chunk_metas = []
-        
-        for page_url, raw_text in pages:
+
+        def on_page_crawled(page_url, raw_text):
+            nonlocal total_chunks
+            # Verify document still exists to prevent foreign key errors or orphaned chunks
+            doc_exists = Document.query.get(doc_id)
+            if not doc_exists:
+                logging.warning(f"Document {doc_id} was deleted during crawl. Aborting page chunking.")
+                return
+
             text = DocumentProcessor._sanitize_text(raw_text)
             from app.services.web_scraper import GENERAL_MODE_CHUNK_WORDS, GENERAL_MODE_CHUNK_OVERLAP
             chunks = DocumentProcessor.chunk_text(text, chunk_size=GENERAL_MODE_CHUNK_WORDS, overlap=GENERAL_MODE_CHUNK_OVERLAP)
-            for i, chunk_text in enumerate(chunks):
+            
+            page_chunks = []
+            for chunk_text in chunks:
                 final_text = f"[Source: {page_url}]\n{chunk_text}"
                 chunk_obj = DocumentChunk(
                     document_id=doc_id,
@@ -46,19 +42,42 @@ def process_website_task(doc_id, url, filename):
                     chunk_index=total_chunks
                 )
                 db.session.add(chunk_obj)
-                chunks_to_add.append((chunk_obj, page_url))
+                page_chunks.append(chunk_obj)
                 total_chunks += 1
             
-        # Commit to get chunk IDs
-        db.session.commit()
+            if page_chunks:
+                db.session.commit()
+                # Store chunk metadata for vectorization later
+                for c in page_chunks:
+                    chunks_to_add.append((c.id, c.chunk_text, page_url))
+
+        # 1. Scrape with progressive chunking callback
+        ok, pages = WebScraper.crawl_website(
+            url, 
+            max_pages_override=10000, 
+            time_cap_override=10800,
+            on_page_crawled=on_page_crawled
+        )
         
-        # 3. Vectorize
-        for c, page_url in chunks_to_add:
-            all_chunk_texts.append(c.chunk_text)
+        doc = Document.query.get(doc_id)
+        if not doc:
+            logging.warning(f"Document {doc_id} was deleted during crawl. Aborting final processing.")
+            return
+
+        if not total_chunks:
+            doc.status = 'error'
+            db.session.commit()
+            return
+
+        # 2. Vectorize
+        all_chunk_texts = []
+        all_chunk_metas = []
+        for chunk_id, chunk_text, page_url in chunks_to_add:
+            all_chunk_texts.append(chunk_text)
             all_chunk_metas.append({
-                'text': c.chunk_text,
+                'text': chunk_text,
                 'doc_id': doc_id,
-                'chunk_id': c.id,
+                'chunk_id': chunk_id,
                 'url': page_url,
                 'filename': filename,
                 'doc_type': doc.doc_type if doc else 'general',
