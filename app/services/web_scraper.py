@@ -409,7 +409,7 @@ class WebScraper:
         return out
 
     @staticmethod
-    def run_crawl_loop(queue, seen, max_pages, max_total_chars, time_cap_s):
+    def run_crawl_loop(queue, seen, max_pages, max_total_chars, time_cap_s, on_page_crawled=None):
         pages_list = []
         total_chars = 0
         pages_done = 0
@@ -446,6 +446,11 @@ class WebScraper:
                     if ok and text and len(text) >= 15 and not WebScraper.is_404_or_error_page(text):
                         pages_list.append((u, text))
                         total_chars += len(text)
+                        if on_page_crawled:
+                            try:
+                                on_page_crawled(u, text)
+                            except Exception as ce:
+                                logging.error(f"Error in on_page_crawled callback: {ce}")
                         if total_chars > max_total_chars:
                             break
                     if soup and pages_done < max_pages:
@@ -461,6 +466,11 @@ class WebScraper:
                     if ok and text and len(text) >= 15 and not WebScraper.is_404_or_error_page(text):
                         pages_list.append((u, text))
                         total_chars += len(text)
+                        if on_page_crawled:
+                            try:
+                                on_page_crawled(u, text)
+                            except Exception as ce:
+                                logging.error(f"Error in on_page_crawled callback: {ce}")
                         if total_chars > max_total_chars:
                             break
                     if soup and pages_done < max_pages:
@@ -473,7 +483,7 @@ class WebScraper:
         return pages_list, total_chars
 
     @staticmethod
-    def crawl_website(url, max_pages_override=None, max_chars_override=None, time_cap_override=None):
+    def crawl_website(url, max_pages_override=None, max_chars_override=None, time_cap_override=None, on_page_crawled=None):
         """Recursively crawl same-domain site (BFS). Returns (True, [(url, text), ...]) or (False, error_message)."""
         try:
             url = WebScraper.normalize_url(url)
@@ -515,7 +525,10 @@ class WebScraper:
             total_chars = 0
             
             # Standard crawl loop (Uses Requests with Jina fallback for problematic pages)
-            pages_list, total_chars = WebScraper.run_crawl_loop(queue, seen, limits['max_pages'], limits['max_chars'], limits['time_cap'])
+            pages_list, total_chars = WebScraper.run_crawl_loop(
+                queue, seen, limits['max_pages'], limits['max_chars'], limits['time_cap'],
+                on_page_crawled=on_page_crawled
+            )
                 
             if not pages_list:
                 return False, 'No text content found on the site'
