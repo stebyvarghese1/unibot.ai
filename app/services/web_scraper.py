@@ -71,14 +71,7 @@ class WebScraper:
 
     @staticmethod
     def get_limits_for_url(url):
-        try:
-            netloc = (urlparse(WebScraper.normalize_url(url)).netloc or '').lower()
-        except Exception:
-            netloc = ''
-        if netloc.endswith('uoc.ac.in'):
-            # Scrape up to 10000 pages for Calicut University, cap time at 3 hours
-            return {'max_pages': 10000, 'max_chars': 100_000_000, 'time_cap': 10800}
-        # For general domains, default to a high safe limit
+        # Default to a high safe limit for all domains
         return {'max_pages': 5000, 'max_chars': 50_000_000, 'time_cap': 5400}
 
     @staticmethod
@@ -427,12 +420,14 @@ class WebScraper:
                     # Try standard requests first
                     ok, soup, text = WebScraper.fetch_one_page_requests(u)
                     
-                    # If requests failed or returned very little text, it might be a JS-heavy or protected page
-                    # Try Jina Reader as a robust fallback
-                    if not ok or not text or len(text) < 350:
+                    # Try Jina Reader as fallback if requests failed, returned no text, or returned relatively short text (e.g. < 2000 chars)
+                    # which is typical for dynamic JS-heavy index pages.
+                    if not ok or not text or len(text) < 2000:
                         ok_j, soup_j, text_j = WebScraper.fetch_one_page_jina(u)
-                        if ok_j and text_j and (not text or len(text_j) > len(text)):
-                            return u, True, soup_j, text_j
+                        if ok_j and text_j:
+                            # Use Jina content if requests failed, returned less than 350 chars, or Jina found significantly more content
+                            if not ok or not text or len(text) < 350 or len(text_j) > len(text) + 500:
+                                return u, True, soup_j, text_j
                             
                     return u, ok, soup, text
                     
@@ -501,18 +496,6 @@ class WebScraper:
                 
             seen = {url}
             seeds = list(WebScraper.fetch_sitemap_urls(url))
-            
-            # Inject key pages for uoc.ac.in to ensure they are crawled immediately
-            if 'uoc.ac.in' in url.lower():
-                extra_seeds = [
-                    'https://uoc.ac.in/index.php/the-university/chancellor',
-                    'https://uoc.ac.in/index.php/the-university/pro-chancellor',
-                    'https://uoc.ac.in/index.php/the-university/vice-chancellor'
-                ]
-                for seed in extra_seeds:
-                    normalized_seed = WebScraper.normalize_crawl_url(seed)
-                    if normalized_seed not in seen and normalized_seed not in seeds:
-                        seeds.append(normalized_seed)
                         
             if seeds:
                 if len(seeds) > 1000:
