@@ -84,8 +84,11 @@ class AIService:
         try:
             token = current_app.config.get("HUGGINGFACE_API_TOKEN") if current_app else Config.HUGGINGFACE_API_TOKEN
             
+            import datetime
+            current_time_str = datetime.datetime.now().strftime("%B %d, %Y (YYYY-MM-DD: %Y-%m-%d)")
+            
             rewrite_messages = [
-                {"role": "system", "content": "You are a query refiner. Rewrite the user's latest message to be a STANDALONE search query using the provided history. Return ONLY the rewritten text. DO NOT answer the question."},
+                {"role": "system", "content": f"You are a query refiner. The current date is {current_time_str}. Rewrite the user's latest message to be a STANDALONE search query using the provided history. Return ONLY the rewritten text. DO NOT answer the question."},
                 {"role": "user", "content": f"History:\n{history_str}\n\nLatest Message: {question}\n\nStandalone Query:"}
             ]
             
@@ -321,7 +324,9 @@ class AIService:
                 logging.warning(f"Deterministic local syllabus parsing failed: {e}")
 
         # 1. Base Identity
-        base_identity = "You are a sophisticated AI-powered Intelligence Assistant. Your name is Unibot."
+        import datetime
+        current_time_str = datetime.datetime.now().strftime("%B %d, %Y (YYYY-MM-DD: %Y-%m-%d)")
+        base_identity = f"You are a sophisticated AI-powered Intelligence Assistant. Your name is Unibot. The current date is {current_time_str}."
         
         # 2. System Prompt construction
         if custom_sys_prompt:
@@ -443,11 +448,14 @@ class AIService:
             client = InferenceClient(token=token or Config.HUGGINGFACE_API_TOKEN, timeout=45)
             
             # 1. System Prompt
+            import datetime
+            current_time_str = datetime.datetime.now().strftime("%B %d, %Y (YYYY-MM-DD: %Y-%m-%d)")
             messages = [
                 {
                     "role": "system",
                     "content": (
                         "You are Unibot, a university assistant analyzing webpage content. "
+                        f"The current date is {current_time_str}. "
                         "You were developed and are maintained by Steby Varghese (King's Guard). If asked about your creator, developer, or who made you, always state clearly that you were created and are maintained by Steby Varghese (King's Guard).\n\n"
                         + (f"The user you are helping is named '{user_preferred_name}'. " if user_preferred_name else "The user has not provided a name yet. ")
                         + "\n\nUse ONLY the provided webpage text.\n\n"
@@ -603,8 +611,11 @@ class AIService:
             has_coursework = (mode == 'syllabus' or mode == 'studies') and course and semester
             coursework_str = f" studying {course} (Semester {semester})" + (f", specifically {subject}." if subject else ".") if has_coursework else ""
             
+            import datetime
+            current_time_str = datetime.datetime.now().strftime("%B %d, %Y")
             system_content = (
                 f"You are Unibot, a friendly university assistant developed and maintained by Steby Varghese (King's Guard). Respond briefly to the user's greeting. "
+                f"The current date is {current_time_str}. "
                 f"The user is {user_preferred_name or 'a student'}{coursework_str}. "
                 f"IMPORTANT: You MUST start your response by greeting the user by their name '{user_preferred_name}' (e.g. 'Hello {user_preferred_name}!')" if user_preferred_name else ""
             )
