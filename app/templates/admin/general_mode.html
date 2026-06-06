@@ -57,12 +57,52 @@
 
             <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
                 <div id="action-status" class="text-sm font-medium"></div>
-                <button id="process-source-btn"
-                    class="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto">
-                    <i class="fa-solid fa-save"></i>
-                    <span>Apply & Save All</span>
-                </button>
+                <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <button id="discover-links-btn" type="button"
+                        class="btn-ghost flex items-center justify-center gap-2 w-full sm:w-auto">
+                        <i class="fa-solid fa-search"></i>
+                        <span>Scan & Discover Pages</span>
+                    </button>
+                    <button id="process-source-btn" type="button"
+                        class="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto">
+                        <i class="fa-solid fa-spider"></i>
+                        <span>Crawl Entire Site</span>
+                    </button>
+                </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Discovered Links Panel (Hidden by default) -->
+    <div id="discovered-links-section" class="hidden bg-slate-900 rounded-xl shadow-2xl border border-slate-800 overflow-hidden">
+        <div class="px-4 sm:px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                    <i class="fa-solid fa-list-ul text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-200">Discovered Pages</h3>
+                    <p class="text-xs text-slate-500 font-medium">Discovered on <span id="discovered-root-url" class="text-indigo-400 font-mono"></span></p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div id="discovered-count" class="text-xs font-black text-slate-600 uppercase tracking-widest">0 PAGES FOUND</div>
+                <input type="text" id="filter-discovered-input" placeholder="Filter links..." 
+                       class="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 w-44">
+            </div>
+        </div>
+        <div class="overflow-x-auto max-h-96">
+            <table class="min-w-full divide-y divide-slate-800">
+                <thead class="bg-slate-800/50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest">URL / Path</th>
+                        <th class="px-6 py-3 text-right text-xs font-black text-slate-500 uppercase tracking-widest w-40">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="discovered-links-list" class="bg-slate-900 divide-y divide-slate-800">
+                    <!-- Discovered links dynamic content -->
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -144,6 +184,138 @@
 
 
 
+    let allDiscoveredLinks = [];
+
+    document.getElementById('discover-links-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('discover-links-btn');
+        const urlInput = document.getElementById('universal-url-input');
+        const url = urlInput.value.trim();
+
+        if (!url) {
+            setStatus('Please enter a valid URL.', 'error');
+            return;
+        }
+
+        // Basic URL validation
+        try { new URL(url); } catch (e) {
+            setStatus('Invalid URL format.', 'error');
+            return;
+        }
+
+        const oldContent = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Scanning...';
+        setStatus('Scanning site for links...', 'info');
+
+        try {
+            const res = await fetch('/api/admin/discover-links', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ url })
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Discovery failed');
+            }
+
+            const data = await res.json();
+            const links = data.links || [];
+            
+            allDiscoveredLinks = links;
+            document.getElementById('discovered-root-url').innerText = url;
+            document.getElementById('discovered-links-section').classList.remove('hidden');
+            document.getElementById('discovered-count').innerText = `${links.length} ${links.length === 1 ? 'PAGE FOUND' : 'PAGES FOUND'}`;
+            
+            applyDiscoveredFilter();
+            setStatus(`Discovered ${links.length} pages successfully!`, 'success');
+        } catch (e) {
+            setStatus(e.message || 'Discovery failed', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = oldContent;
+        }
+    });
+
+    function applyDiscoveredFilter() {
+        const filterVal = document.getElementById('filter-discovered-input').value.trim().toLowerCase();
+        const list = document.getElementById('discovered-links-list');
+        list.innerHTML = '';
+
+        const filtered = allDiscoveredLinks.filter(lnk => lnk.toLowerCase().includes(filterVal));
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<tr><td colspan="2" class="px-6 py-4 text-center text-slate-600 text-sm">No matching links found</td></tr>';
+            return;
+        }
+
+        filtered.forEach(link => {
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-slate-800/40 transition-colors group';
+            
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300 font-mono truncate max-w-md sm:max-w-xl" title="${link}">
+                    ${link}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+                    <button onclick="processSingleLink('${link}', this)" class="btn-primary px-3 py-1 text-xs font-semibold flex items-center justify-center gap-1.5 ml-auto">
+                        <i class="fa-solid fa-gears"></i>
+                        <span>Process</span>
+                    </button>
+                </td>
+            `;
+            list.appendChild(row);
+        });
+    }
+
+    let filterDebounce = null;
+    document.getElementById('filter-discovered-input').addEventListener('input', () => {
+        clearTimeout(filterDebounce);
+        filterDebounce = setTimeout(applyDiscoveredFilter, 200);
+    });
+
+    window.processSingleLink = async function(url, btn) {
+        const oldContent = btn.innerHTML;
+        btn.disabled = true;
+        btn.className = 'px-3 py-1 text-xs font-semibold rounded-lg bg-slate-800 text-slate-500 border border-slate-700 pointer-events-none flex items-center justify-center gap-1.5 ml-auto';
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Processing';
+
+        try {
+            const res = await fetch('/api/admin/add-website', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({
+                    url,
+                    course: 'General Mode',
+                    semester: 'Institutional',
+                    subject: 'Web Knowledge',
+                    recursive: false
+                })
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to start processing');
+            }
+
+            btn.innerHTML = '<i class="fa-solid fa-check text-green-400 mr-1"></i> Added';
+            btn.className = 'px-3 py-1 text-xs font-semibold rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 pointer-events-none flex items-center justify-center gap-1.5 ml-auto';
+            
+            loadDocs();
+        } catch (e) {
+            btn.disabled = false;
+            btn.innerHTML = oldContent;
+            btn.className = 'btn-primary px-3 py-1 text-xs font-semibold flex items-center justify-center gap-1.5 ml-auto';
+            alert(e.message || 'Error processing link');
+        }
+    };
+
     document.getElementById('process-source-btn').addEventListener('click', async () => {
         const btn = document.getElementById('process-source-btn');
         const urlInput = document.getElementById('universal-url-input');
@@ -167,8 +339,6 @@
         setStatus('Orchestrating request...', 'info');
 
         try {
-
-
             if (doIndex) {
                 const scrapeRes = await fetch('/api/admin/add-website', {
                     method: 'POST',
@@ -180,7 +350,8 @@
                         url,
                         course: 'General Mode',
                         semester: 'Institutional',
-                        subject: 'Web Knowledge'
+                        subject: 'Web Knowledge',
+                        recursive: true
                     })
                 });
                 if (!scrapeRes.ok) {
