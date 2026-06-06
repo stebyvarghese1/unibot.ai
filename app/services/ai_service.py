@@ -343,8 +343,8 @@ class AIService:
                 (f"They are studying {course}, in Semester {semester}" + (f" (Subject: {subject})." if subject else ".") if (mode == 'syllabus' and course and semester) else "") +
                 " Use this to be friendly, but don't overdo it.\n"
                 "3. ADAPTIVE ROLE: In STUDIES mode, rely entirely on syllabus and academic documents. In GENERAL mode, rely entirely on university general documents. Do not answer outside of this scope.\n"
-                "4. NATURAL SPEECH: Answer directly. NEVER mention 'provided context', 'the text', or 'the database'. Avoid phrases like 'Based on the information provided...'. Speak as if you simply know the facts.\n"
-                "5. STRICT GROUNDING: You are a strict RAG chatbot. You MUST answer strictly using ONLY the provided context and the SYLLABUS GROUNDING information (if provided). If both are empty or do not contain the answer, you MUST politely state that you do not have the information in your knowledge base. NEVER use your general pre-trained knowledge to answer questions.\n"
+                "4. NATURAL SPEECH: Answer directly. NEVER mention 'provided context', 'context', 'the text', 'knowledge base', 'the database', or 'the files'. Avoid phrases like 'Based on the information provided...'. Speak as if you simply know the facts.\n"
+                "5. STRICT GROUNDING: You are a strict RAG chatbot. You MUST answer strictly using ONLY the provided context and the SYLLABUS GROUNDING information (if provided). If both are empty or do not contain the answer, you MUST politely state that you do not have this information in your records. NEVER use your general pre-trained knowledge to answer questions.\n"
                 "6. SYLLABUS PRIORITY: For questions about curriculum structure, Units, Modules, or specific topics, you MUST prioritize the **SYLLABUS GROUNDING** section. Provide the topics exactly as listed in the official curriculum.\n"
                 "7. GROUNDING SAFEGUARD: If you are in STUDIES (SYLLABUS) mode and the SYLLABUS GROUNDING section is missing or empty, and the user asks for topics/curriculum, you MUST politely explain that you don't have their specific subject's syllabus yet. Ask them to ensure their **Course, Semester, and Subject** are correctly set in their profile or the sidebar.\n"
                 "8. HELPFULNESS: Never be dismissive. If you don't know something, suggest where the user might find it or offer related helpful information.\n"
@@ -376,16 +376,16 @@ class AIService:
             user_content = (
                 f"Syllabus Grounding Information (Subject: {subject or 'Academic'}):\n"
                 f"<syllabus_grounding>\n{enriched_syllabus}\n</syllabus_grounding>\n\n"
-                f"Context Information:\n<context>\n{context_str}\n</context>\n\n"
-                "Based STRICTLY on the syllabus grounding and context information provided above, answer the following question. "
-                "If neither the syllabus grounding nor the context contains the answer, you MUST politely explain that this information is currently missing from Unibot's database, and suggest that the user verify their Course/Semester/Subject settings or ask an administrator to upload/crawl the relevant source.\n\n"
+                f"Reference Information:\n<context>\n{context_str}\n</context>\n\n"
+                "Ground your answer strictly in the syllabus grounding and reference information provided. "
+                "If the information is not present, politely state that you do not have this information in your records, and suggest that the user verify their Course/Semester/Subject settings in their profile or ask an administrator to update the system.\n\n"
                 f"Question: {question}"
             )
         else:
             user_content = (
-                f"Context Information:\n<context>\n{context_str}\n</context>\n\n"
-                "Based STRICTLY on the context above, answer the following question. "
-                "If the context does not contain the answer, you MUST politely explain that this information is currently missing from Unibot's database, and suggest that an administrator crawls the relevant URL or uploads the document under settings.\n\n"
+                f"Reference Information:\n<context>\n{context_str}\n</context>\n\n"
+                "Ground your answer strictly in the reference information provided. "
+                "If the information is not present, politely state that you do not have this information in your records, and suggest that they double-check their course settings or ask an administrator to update the system.\n\n"
                 f"Question: {question}"
             )
             
