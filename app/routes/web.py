@@ -161,6 +161,9 @@ def discover_links():
         # 1. Fetch root page
         ok, soup, text = WebScraper.fetch_one_page_requests(url)
         
+        # Keep reference to raw requests soup containing script tags (lost in Jina conversion)
+        raw_soup = soup if (ok and soup) else None
+        
         # Fallback to Jina Reader if requests failed, returned no text, or returned relatively short text (e.g. < 2000 chars)
         if not ok or not soup or not text or len(text) < 2000:
             ok_j, soup_j, text_j = WebScraper.fetch_one_page_jina(url)
@@ -175,7 +178,16 @@ def discover_links():
         # 2. Extract same-domain links
         links = WebScraper.extract_filtered_links(soup, url)
         
-        # 3. Try to discover sitemap links too
+        # 3. Discover Javascript endpoints (AJAX targets like getlist.php)
+        try:
+            js_soup = raw_soup if raw_soup else soup
+            js_links = WebScraper.extract_script_endpoints(js_soup, url)
+            if js_links:
+                links.update(js_links)
+        except Exception as jse:
+            logging.warning(f"JS endpoint discovery warning: {jse}")
+        
+        # 4. Try to discover sitemap links too
         try:
             sitemap_links = WebScraper.fetch_sitemap_urls(url)
             if sitemap_links:
