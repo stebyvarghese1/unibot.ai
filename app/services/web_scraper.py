@@ -346,6 +346,74 @@ class WebScraper:
         return WebScraper.fetch_one_page_requests(url)
 
     @staticmethod
+    def extract_script_endpoints(soup, base_url):
+        """Extract relative paths/endpoints from inline script tags and same-domain external scripts."""
+        endpoints = set()
+        if not soup:
+            return endpoints
+            
+        import re
+        from urllib.parse import urljoin, urlparse
+        
+        # Regex to find Javascript strings that look like relative/absolute paths or endpoints
+        js_path_pattern = re.compile(
+            r'(?:"|\')((?:/[a-zA-Z0-9_\-\.]+)+|[a-zA-Z0-9_\-]+\.(?:php|json|html|xml|asp|aspx|jsp))(?:[?#][^\s\'"]*)?(?:"|\')'
+        )
+        
+        # 1. Scan inline scripts
+        for script in soup.find_all('script'):
+            if script.string:
+                for path in js_path_pattern.findall(script.string):
+                    endpoints.add(urljoin(base_url, path))
+                    
+        # 2. Scan local external scripts
+        try:
+            base_netloc = (urlparse(base_url).netloc or '').lower()
+            
+            for script in soup.find_all('script', src=True):
+                src = script.get('src', '').strip()
+                if not src:
+                    continue
+                src_url = urljoin(base_url, src)
+                src_netloc = (urlparse(src_url).netloc or '').lower()
+                
+                # Only check same domain external scripts
+                if src_netloc != base_netloc:
+                    continue
+                    
+                # Exclude library files to keep it fast and clean
+                src_lower = src_url.lower()
+                libs = ('jquery', 'bootstrap', 'datatables', 'recaptcha', 'google', 'analytics', 'font-awesome', 'react', 'vue', 'angular')
+                if any(lib in src_lower for lib in libs):
+                    continue
+                    
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+                }
+                try:
+                    r = requests.get(src_url, headers=headers, timeout=5, verify=False)
+                    if r.status_code == 200:
+                        for path in js_path_pattern.findall(r.text):
+                            endpoints.add(urljoin(base_url, path))
+                except Exception as ex:
+                    logging.warning(f"Failed to fetch external script {src_url} for dynamic link discovery: {ex}")
+        except Exception as ex:
+            logging.warning(f"Error scanning external scripts for endpoints: {ex}")
+            
+        # Clean and validate discovered endpoints
+        valid_endpoints = set()
+        for ep in endpoints:
+            normalized = WebScraper.normalize_crawl_url(ep)
+            if normalized:
+                parsed = urlparse(normalized)
+                path_lower = (parsed.path or '').lower()
+                bad_exts = ('.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.woff', '.ttf', '.ico')
+                if not any(path_lower.endswith(ext) for ext in bad_exts):
+                    valid_endpoints.add(normalized)
+                    
+        return valid_endpoints
+
+    @staticmethod
     def extract_filtered_links(soup, base_url):
         if not soup:
             return set()
