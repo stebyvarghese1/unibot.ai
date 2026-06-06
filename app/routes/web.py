@@ -160,11 +160,14 @@ def discover_links():
         
         # 1. Fetch root page
         ok, soup, text = WebScraper.fetch_one_page_requests(url)
-        if not ok or not soup:
-            # Fallback to Jina Reader
+        
+        # Fallback to Jina Reader if requests failed, returned no text, or returned relatively short text (e.g. < 2000 chars)
+        if not ok or not soup or not text or len(text) < 2000:
             ok_j, soup_j, text_j = WebScraper.fetch_one_page_jina(url)
             if ok_j and soup_j:
-                ok, soup, text = ok_j, soup_j, text_j
+                # Use Jina content if requests failed, or Jina returned significantly more content
+                if not ok or not text or len(text_j) > len(text) + 500:
+                    ok, soup, text = ok_j, soup_j, text_j
                 
         if not ok or not soup:
             return jsonify({'error': f'Failed to retrieve target website root page: {text}'}), 400
