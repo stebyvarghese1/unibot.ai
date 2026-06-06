@@ -11,7 +11,7 @@ import logging
 
 web_bp = Blueprint('web', __name__)
 
-def process_website_task(doc_id, url, filename):
+def process_website_task(doc_id, url, filename, recursive=True):
     """Internal task for crawling a website in the background"""
     from app.services.web_scraper import WebScraper
     from app.services.vector_store import VectorStore
@@ -52,10 +52,13 @@ def process_website_task(doc_id, url, filename):
                     chunks_to_add.append((c.id, c.chunk_text, page_url))
 
         # 1. Scrape with progressive chunking callback
+        max_pages = 10000 if recursive else 1
+        time_cap = 10800 if recursive else 60
+
         ok, pages = WebScraper.crawl_website(
             url, 
-            max_pages_override=10000, 
-            time_cap_override=10800,
+            max_pages_override=max_pages, 
+            time_cap_override=time_cap,
             on_page_crawled=on_page_crawled
         )
         
@@ -110,6 +113,7 @@ def add_website():
         course = data.get('course')
         semester = data.get('semester')
         subject = data.get('subject')
+        recursive = data.get('recursive', True)
 
         if not url:
             return jsonify({'error': 'URL is required'}), 400
@@ -130,7 +134,7 @@ def add_website():
         db.session.add(new_doc)
         db.session.commit()
         
-        run_background_task(process_website_task, new_doc.id, url, new_doc.filename)
+        run_background_task(process_website_task, new_doc.id, url, new_doc.filename, recursive=recursive)
 
         return jsonify({
             'message': 'Website scraping started.',
@@ -141,4 +145,51 @@ def add_website():
     except Exception as e:
         db.session.rollback()
         logging.error(f"Add website failed: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+@web_bp.route('/api/admin/discover-links', methods=['POST'])
+@admin_required
+def discover_links():
+    try:
+        data = request.json
+        url = (data.get('url') or '').strip()
+        if not url:
+            return jsonify({'error': 'URL is required'}), 400
+            
+        url = WebScraper.normalize_url(url)
+        
+        # 1. Fetch root page
+        ok, soup, text = WebScraper.fetch_one_page_requests(url)
+        if not ok or not soup:
+            # Fallback to Jina Reader
+            ok_j, soup_j, text_j = WebScraper.fetch_one_page_jina(url)
+            if ok_j and soup_j:
+                ok, soup, text = ok_j, soup_j, text_j
+                
+        if not ok or not soup:
+            return jsonify({'error': f'Failed to retrieve target website root page: {text}'}), 400
+            
+        # 2. Extract same-domain links
+        links = WebScraper.extract_filtered_links(soup, url)
+        
+        # 3. Try to discover sitemap links too
+        try:
+            sitemap_links = WebScraper.fetch_sitemap_urls(url)
+            if sitemap_links:
+                links.update(sitemap_links)
+        except Exception as se:
+            logging.warning(f"Sitemap link discovery warning: {se}")
+            
+        # Add root URL to unique set
+        normalized_root = WebScraper.normalize_crawl_url(url)
+        unique_links = list(links)
+        if normalized_root not in unique_links:
+            unique_links.insert(0, normalized_root)
+            
+        return jsonify({
+            'url': url,
+            'links': sorted(unique_links)
+        })
+    except Exception as e:
+        logging.error(f"Discover links failed: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
