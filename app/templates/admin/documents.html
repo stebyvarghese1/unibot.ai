@@ -67,7 +67,7 @@
               <p class="mb-1 text-sm text-slate-400"><span class="font-black text-white">Click to select files</span>
               </p>
               <p class="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-1">PDF • DOCX • PPTX (UP TO
-                16MB)</p>
+                100MB)</p>
             </div>
             <input id="file-input" type="file" class="hidden" accept=".pdf,.docx,.pptx" />
           </label>
@@ -640,9 +640,17 @@
       status.className = 'mt-4 text-sm text-center text-red-400 font-bold';
       return;
     }
+    
+    const file = fileInput.files[0];
+    if (file.size > 100 * 1024 * 1024) {
+      status.innerText = 'File is too large (maximum size is 100MB)';
+      status.className = 'mt-4 text-sm text-center text-red-400 font-bold';
+      return;
+    }
+
     const formData = new FormData(uploadForm);
     formData.set('doc_type', 'general'); // Ensure Course Materials are always general supporting type
-    formData.append('file', fileInput.files[0]);
+    formData.append('file', file);
     status.innerText = 'Uploading...';
     status.className = 'mt-4 text-sm text-center text-indigo-400 font-bold animate-pulse';
     try {
@@ -651,7 +659,13 @@
         body: formData,
         headers: { 'X-CSRFToken': getCsrfToken() }
       });
-      const data = await res.json();
+      
+      let data = {};
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      }
+      
       if (res.ok) {
         status.innerText = 'Success! File processed.';
         status.className = 'mt-4 text-sm text-center text-emerald-400 font-bold';
@@ -661,11 +675,15 @@
         loadDocs();
         setTimeout(function () { status.innerText = ''; }, 3000);
       } else {
-        status.innerText = data.error || 'Upload failed';
+        if (res.status === 413) {
+          status.innerText = data.message || data.error || 'File is too large (maximum size is 100MB)';
+        } else {
+          status.innerText = data.error || `Upload failed with status ${res.status}`;
+        }
         status.className = 'mt-4 text-sm text-center text-red-400 font-bold';
       }
     } catch (err) {
-      status.innerText = 'Network error';
+      status.innerText = 'Network error or upload failed';
       status.className = 'mt-4 text-sm text-center text-red-600';
     }
   });
@@ -685,8 +703,16 @@
       status.className = 'mt-4 text-sm text-center text-red-400 font-bold';
       return;
     }
+    
+    const file = systemFileInput.files[0];
+    if (file.size > 100 * 1024 * 1024) {
+      status.innerText = 'File is too large (maximum size is 100MB)';
+      status.className = 'mt-4 text-sm text-center text-red-400 font-bold';
+      return;
+    }
+
     const formData = new FormData(systemUploadForm);
-    formData.append('file', systemFileInput.files[0]);
+    formData.append('file', file);
     status.innerText = 'Uploading...';
     status.className = 'mt-4 text-sm text-center text-indigo-400 font-bold animate-pulse';
     try {
@@ -695,7 +721,13 @@
         body: formData,
         headers: { 'X-CSRFToken': getCsrfToken() }
       });
-      const data = await res.json();
+      
+      let data = {};
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      }
+      
       if (res.ok) {
         status.innerText = 'Success! System info processed.';
         status.className = 'mt-4 text-sm text-center text-emerald-400 font-bold';
@@ -705,11 +737,15 @@
         loadDocs();
         setTimeout(function () { status.innerText = ''; }, 3000);
       } else {
-        status.innerText = data.error || 'Upload failed';
+        if (res.status === 413) {
+          status.innerText = data.message || data.error || 'File is too large (maximum size is 100MB)';
+        } else {
+          status.innerText = data.error || `Upload failed with status ${res.status}`;
+        }
         status.className = 'mt-4 text-sm text-center text-red-400 font-bold';
       }
     } catch (err) {
-      status.innerText = 'Network error';
+      status.innerText = 'Network error or upload failed';
       status.className = 'mt-4 text-sm text-center text-red-600';
     }
   });
