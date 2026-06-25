@@ -372,6 +372,16 @@ def create_app(config_class=Config):
             "message": str(e.description) if hasattr(e, 'description') else "Too many requests. Please try again later."
         }), 429
 
+    # Global File Size Limit Error Handler
+    @app.errorhandler(413)
+    def request_entity_too_large(e):
+        return jsonify({
+            "status": "error",
+            "error": "File too large",
+            "message": "The uploaded file exceeds the maximum allowed size of 100MB."
+        }), 413
+
+
     # Dispose of the engine connection pool.
     # This prevents the parent process's active database connections from being inherited/shared 
     # across worker forks (e.g. under Gunicorn on Render), which prevents "SSL error: bad record type".
