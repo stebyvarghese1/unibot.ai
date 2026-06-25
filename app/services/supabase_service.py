@@ -42,7 +42,7 @@ class SupabaseService:
     def client(self) -> Client:
         return self._client
 
-    def upload_file(self, file_data: bytes, path: str, bucket_name: str = None, content_type: str = None):
+    def upload_file(self, file_data, path: str, bucket_name: str = None, content_type: str = None):
         """Uploads a file to Supabase Storage"""
         if not bucket_name:
             bucket_name = Config.SUPABASE_BUCKET
