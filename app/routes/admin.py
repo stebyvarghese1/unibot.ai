@@ -100,51 +100,58 @@ def handle_filter_options():
                                 course_name = course.value
 
                 # 2. Upload and Ingest via DocumentProcessor (reusing upload logic)
-                from app.services.supabase_service import SupabaseService
-                from app.services.document_processor import DocumentProcessor
                 from app.models import Document
+                from app.routes.docs import upload_and_process_document_task
                 import os
+                import tempfile
                 
-                # Correctly instantiate service and prepare file data
-                supa = SupabaseService()
-                file_bytes = file.read()
-                file.seek(0) # Reset pointer for safety
-                
-                # Generate a unique path in Supabase storage
-                storage_path = f"syllabus/{int(time.time())}_{file.filename}"
-                
-                file_path = supa.upload_file(
-                    file_data=file_bytes, 
-                    path=storage_path, 
-                    content_type=file.content_type
-                )
-                
-                user_id = session.get('user_id')
-                if not user_id:
-                    # Fallback or error
-                    return jsonify({'error': 'Admin session expired or user ID missing.'}), 401
+                ext = os.path.splitext(file.filename)[1].lower()
+                temp_path = None
+                try:
+                    # Stream upload to temporary file
+                    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as temp_file:
+                        temp_path = temp_file.name
+                        
+                    with open(temp_path, 'wb') as f:
+                        while True:
+                            chunk = file.stream.read(1024 * 1024) # 1MB chunks
+                            if not chunk:
+                                break
+                            f.write(chunk)
                     
-                new_doc = Document(
-                    filename=file.filename,
-                    file_path=file_path,
-                    course=course_name,
-                    semester=semester_name,
-                    subject=value,
-                    doc_type='syllabus',
-                    status='pending',
-                    uploaded_by=user_id
-                )
-                db.session.add(new_doc)
-                db.session.flush() # Flush to get IDs if needed
-                
-                # Process in background
-                from app.routes.docs import process_document_task
-                
-                # Commit before background task
-                db.session.commit()
-                
-                run_background_task(process_document_task, new_doc.id)
-                logging.info(f"✅ Intelligence Grounded: {value} ({course_name}/{semester_name})")
+                    user_id = session.get('user_id')
+                    if not user_id:
+                        if temp_path and os.path.exists(temp_path):
+                            try: os.remove(temp_path)
+                            except Exception: pass
+                        return jsonify({'error': 'Admin session expired or user ID missing.'}), 401
+                        
+                    new_doc = Document(
+                        filename=file.filename,
+                        file_path=f"pending://{file.filename}", # Placeholder path until uploaded
+                        course=course_name,
+                        semester=semester_name,
+                        subject=value,
+                        doc_type='syllabus',
+                        status='pending',
+                        uploaded_by=user_id
+                    )
+                    db.session.add(new_doc)
+                    db.session.flush() # Flush to get IDs
+                    
+                    # Commit before starting background task
+                    db.session.commit()
+                    
+                    # Offload upload and processing to a background task
+                    storage_path = f"syllabus/{new_doc.id}_{file.filename}"
+                    run_background_task(upload_and_process_document_task, new_doc.id, temp_path, storage_path, file.content_type)
+                    logging.info(f"✅ Intelligence Grounded initiated for: {value} ({course_name}/{semester_name})")
+                except Exception as stream_err:
+                    db.session.rollback()
+                    if temp_path and os.path.exists(temp_path):
+                        try: os.remove(temp_path)
+                        except Exception: pass
+                    raise stream_err
             else:
                 return jsonify({'error': 'A syllabus file must be uploaded as multipart/form-data.'}), 400
 
