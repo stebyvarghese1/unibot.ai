@@ -197,10 +197,65 @@ class WebScraper:
     def extract_text_from_html(html, base_url):
         if not html:
             return None, ""
+        import re
+        import html as html_parser
+        
         # Use only one soup instance for performance and memory
         soup = BeautifulSoup(html, 'lxml' if 'lxml' in sys.modules else 'html.parser')
         soup_all = soup # Keep reference if needed, but avoid re-parsing
         
+        # 1. Decode Cloudflare obfuscated emails
+        try:
+            for tag in soup.find_all(attrs={"data-cfemail": True}):
+                hex_str = tag.get("data-cfemail")
+                if hex_str:
+                    try:
+                        r = int(hex_str[:2], 16)
+                        email = ''.join([chr(int(hex_str[i:i+2], 16) ^ r) for i in range(2, len(hex_str), 2)])
+                        if email and "@" in email:
+                            tag.string = email
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        # 2. Decode Joomla / general script-cloaked emails
+        try:
+            # Look for any text tag containing the spambot protection message
+            for tag in soup.find_all(text=re.compile("protected from spambots", re.I)):
+                parent = tag.parent
+                if not parent:
+                    continue
+                # Look for a sibling script tag
+                sibling = parent.find_next_sibling("script")
+                decoded_successfully = False
+                if sibling and sibling.string:
+                    js_code = sibling.string
+                    match = re.search(r"var\s+addy\w*\s*=\s*(.*?);", js_code)
+                    if match:
+                        parts_expr = match.group(1)
+                        parts = re.findall(r"['\"](.*?)['\"]", parts_expr)
+                        raw_email = "".join(parts)
+                        email = html_parser.unescape(raw_email)
+                        if "@" in email:
+                            parent.string = email
+                            sibling.decompose()
+                            decoded_successfully = True
+                
+                # If we couldn't decode it, decompose the parent node to avoid scraping the boilerplate error message
+                if not decoded_successfully:
+                    parent.decompose()
+        except Exception:
+            pass
+            
+        # 3. Clean up noscript tags containing spambots warning (just in case they are nested elsewhere)
+        try:
+            for tag in soup.find_all("noscript"):
+                if tag.string and "protected from spambots" in tag.string.lower():
+                    tag.decompose()
+        except Exception:
+            pass
+
         # Remove unwanted tags, but keep noscript as it may contain fallback text
         for tag in soup(['script', 'style', 'header', 'footer', 'aside', 'iframe', 'nav', 'svg']):
             tag.decompose()
