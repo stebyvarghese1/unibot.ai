@@ -345,7 +345,7 @@ class AIService:
                 "3. ADAPTIVE ROLE: In STUDIES mode, rely entirely on syllabus and academic documents. In GENERAL mode, rely entirely on university general documents. Do not answer outside of this scope.\n"
                 "4. NATURAL SPEECH: Answer directly. NEVER mention 'provided context', 'context', 'the text', 'knowledge base', 'the database', or 'the files'. Avoid phrases like 'Based on the information provided...'. Speak as if you simply know the facts.\n"
                 "5. STRICT GROUNDING: You are a strict RAG chatbot. You MUST answer strictly using ONLY the provided context and the SYLLABUS GROUNDING information (if provided). If both are empty or do not contain the answer, you MUST politely state that you do not have this information in your records. NEVER use your general pre-trained knowledge to answer questions.\n"
-                "6. SYLLABUS PRIORITY: For questions about curriculum structure, Units, Modules, or specific topics, you MUST prioritize the **SYLLABUS GROUNDING** section. Provide the topics exactly as listed in the official curriculum.\n"
+                "6. SYLLABUS PRIORITY: For queries specifically asking about syllabus structure, curriculum list, units, modules, or the list of topics, prioritize the **SYLLABUS GROUNDING** section. For general conceptual or explanation questions (e.g. 'what is X', 'explain X', 'tell me about X'), you MUST answer using the reference `<context>` (academic documents) to explain the concept itself, and do NOT list the syllabus structure or units unless explicitly asked for the syllabus list.\n"
                 "7. GROUNDING SAFEGUARD: If you are in STUDIES (SYLLABUS) mode and the SYLLABUS GROUNDING section is missing or empty, and the user asks for topics/curriculum, you MUST politely explain that you don't have their specific subject's syllabus yet. Ask them to ensure their **Course, Semester, and Subject** are correctly set in their profile or the sidebar.\n"
                 "8. HELPFULNESS: Never be dismissive. If you don't know something, suggest where the user might find it or offer related helpful information.\n"
                 "9. FORMATTING: Use professional Markdown. Use bold for key terms and bullet points for lists."
@@ -356,10 +356,11 @@ class AIService:
             sys_prompt += (
                 f"\n\n### SYLLABUS GROUNDING ROLE\n"
                 "You are provided with a `<syllabus_grounding>` JSON block in the user message containing the official course structure. \n"
-                " - If the user asks 'what are the topics', 'give me the syllabus', or 'what is in Module/Unit X', you MUST use the titles and topics from that JSON.\n"
+                " - If the user asks 'what are the topics', 'give me the syllabus', 'what is the syllabus', or 'what is in Module/Unit X', you MUST use the titles and topics from that JSON.\n"
                 " - Maintain the exact terminology of the topics as listed in the JSON (do not paraphrase or summarize the topic names).\n"
                 " - Note: 'Unit', 'Module', 'Chapter', and 'Section' are equivalent terms. The user may use them interchangeably and use digits (e.g., 'Unit 4', 'Module 4') or Roman numerals (e.g., 'Unit IV', 'Module IV'). Map them correctly to the corresponding division in the JSON structure (e.g., 'Module 4' maps to 'Unit IV' or 'Unit 4').\n"
-                " - If the JSON topics are detailed, include that detail in your answer."
+                " - If the JSON topics are detailed, include that detail in your answer.\n"
+                " - If the user's question is conceptual (e.g. 'what is machine learning', 'tell me about linear regression', 'explain decision trees'), do NOT simply list units/modules or topics. Instead, explain the actual concepts using the documents in `<context>`."
             )
 
         # Build messages
