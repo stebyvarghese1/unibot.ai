@@ -275,13 +275,41 @@
 
         document.getElementById('signup-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('signup-email').value;
+            const email = document.getElementById('signup-email').value.trim();
             const password = document.getElementById('signup-password').value;
             const confirm = document.getElementById('signup-confirm').value;
             const errorMsg = document.getElementById('signup-error');
             const btn = e.target.querySelector('button');
 
-            if (password !== confirm) { errorMsg.innerText = 'Passwords not matching'; errorMsg.classList.remove('hidden'); return; }
+            // Email validation regex
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!emailRegex.test(email)) {
+                errorMsg.innerText = 'Please enter a valid email address';
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            // Password length validation
+            if (password.length < 8) {
+                errorMsg.innerText = 'Password must be at least 8 characters long';
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            // Password complexity validation (must contain both letters and numbers)
+            const hasLetter = /[a-zA-Z]/.test(password);
+            const hasNumber = /[0-9]/.test(password);
+            if (!hasLetter || !hasNumber) {
+                errorMsg.innerText = 'Password must contain both letters and numbers';
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            if (password !== confirm) {
+                errorMsg.innerText = 'Passwords do not match';
+                errorMsg.classList.remove('hidden');
+                return;
+            }
             
             btn.disabled = true; btn.innerText = 'Creating account...';
             try {
