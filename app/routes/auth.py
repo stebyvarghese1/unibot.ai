@@ -79,6 +79,23 @@ def signup():
     password = data.get('password')
     if not email or not password:
         return jsonify({'error': 'Email and password required'}), 400
+    
+    # Email format validation
+    import re
+    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_regex, email):
+        return jsonify({'error': 'Please enter a valid email address'}), 400
+
+    # Password length validation
+    if len(password) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters long'}), 400
+
+    # Password complexity validation (must contain both letters and numbers)
+    has_letter = any(c.isalpha() for c in password)
+    has_number = any(c.isdigit() for c in password)
+    if not has_letter or not has_number:
+        return jsonify({'error': 'Password must contain both letters and numbers'}), 400
+
     existing = User.query.filter_by(email=email).first()
     if existing:
         return jsonify({'error': 'Email already registered'}), 400
